@@ -72,7 +72,6 @@ def main(num_epochs = 200,
             loss1.backward()
             optimizer1.step()
 
-
             if i == 499:
                 print("Ordinary Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}"
                       .format(epoch + 1, num_epochs, i + 1, total_step, loss1.item()))

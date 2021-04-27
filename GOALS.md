@@ -4,22 +4,36 @@ Towards Inter— Neural Network Communication and Resolution
 Abstract
 Visual handwriting recognition systems are often supplemented with a language model to further improve predictions. Traditionally, the visual system outputs some probability for each possible token conditioned on an image, which is then multiplied by some prior probability of that token conditioned on the context and chosen language model, and the token with the highest joint probability is selected. We present a method for separately trained visual and linguistic neural networks to converse with each other, which enables the system to provide predictions that involve higher-order interactions between the visual and linguistic component models.
 
-
-
 # Plan
-* Create corrupted digits
-  * Use fonts
-  * Occlusion, gaussian noise, warping, etc.
-* Get a CNN
-* Get a language model
-  * Find one with character tokens
-  * Think of how to do this with words?
-* Consideration:
-  * Where was the language model trained?
+    * Create corrupted digits
+      * Use fonts
+      * Occlusion, gaussian noise, warping, etc.
+    * Get a CNN
+    * Get a language model
+      * Find one with character tokens
+      * Think of how to do this with words?
+    * Consideration:
+      * Where was the language model trained?
 
 * Experiment 1:
     * Just backprop through the language model to the CNN so the CNN learns
     * Control: Train a CNN, then pass predictions to Kaldi LM
+
+* VilBERT
+
+
+# Analyses / Research
+    * Comparison of visual vs. linguisitc embeddings
+    * how/why
+
+* Experiment X: (more thinking)
+    * [Design an RNN cell that keeps going until it settles on something]
+        * Like an RNN that makes an external call to the language model
+    * GLOM
+    *
+
+
+** DEPRECATED EXPERIMENTS
 
 * Experiment 2:
     * Deconvolve language model outputs and feed back into the CNN
@@ -42,10 +56,3 @@ Visual handwriting recognition systems are often supplemented with a language mo
     * Concatenate what comes out of the language model
         * E.g. you deconvolve what comes out of the language model and add it as a channel to the CNN
         * You concatenate the language model output to the RNN input
-
-compare visual vs. linguisitc embeddings
-* how/why
-
-* Experiment X: (more thinking)
-    * [Design an RNN cell that keeps going until it settles on something]
-        * Like an RNN that makes an external call to the language model
