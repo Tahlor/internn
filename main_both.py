@@ -54,7 +54,7 @@ def main(num_epochs = 200,
     # Create model
     # Sample letters
     # Choose random images of letters
-    # Restrict language model to predict only A-z OR get images for symbols
+    # Restrict language model to predict only A-z
     # Pre train the language model
     # [Calculate statistics on visual model only OR train it]
 
