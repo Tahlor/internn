@@ -42,7 +42,8 @@ hwr_utils/RESULTS/COMPARISON/
 #data/prepare_online_data/line-level-xml*
 #data/prepare_online_data/training_test_splits/
 #data/prepare_online_data/online_augmentation.json
-data/
+#data/
+data.zip
 
 writer_IDs.pickle
 
@@ -175,4 +176,21 @@ data/emnist/EMNIST/processed/training_byclass.pt
 data/emnist/EMNIST/processed/training_bymerge.pt
 data/emnist/EMNIST/processed/training_digits.pt
 lm/reformer/pretrained.bin
-internn/
+./.git/objects/d1/96d1dc07e6ab28b4a19e728c0032fba7410100
+./.git/objects/d1/tmp_obj_FQNfvT
+./data/emnist/EMNIST/processed/test_balanced.pt
+./data/emnist/EMNIST/processed/test_byclass.pt
+./data/emnist/EMNIST/processed/test_bymerge.pt
+./data/emnist/EMNIST/processed/test_digits.pt
+./data/emnist/EMNIST/processed/test_letters.pt
+./data/emnist/EMNIST/processed/training_balanced.pt
+./data/emnist/EMNIST/processed/training_byclass.pt
+./data/emnist/EMNIST/processed/training_bymerge.pt
+./data/emnist/EMNIST/processed/training_digits.pt
+./data/emnist/EMNIST/processed/training_letters.pt
+./data/emnist/EMNIST/processed/training_mnist.pt
+./data/text_generation/.git/objects/pack/pack-a61a254d0829cc2319ad3b2afdb704e711a47f21.pack
+./data/text_generation/clean_text.txt
+./data/text_generation/fonts/font_pack/AdobeHeitiStd-Regular.otf
+./data/text_generation/raw_text_10000.txt
+./lm/reformer/pretrained.bin
