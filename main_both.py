@@ -1,6 +1,8 @@
 # CONFIG
 # CNN
 # LM
+import pdb
+
 import torch
 import torchvision
 import math
@@ -31,7 +33,7 @@ def main(num_epochs = 200,
          log_interval = 500,
          *args,
          **kwargs):
-
+    pdb.set_trace()
     train_loader, test_loader = loaders.loader(batch_size_train = 100, batch_size_test = 1000)
 
     # Train the model
