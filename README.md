@@ -6,6 +6,9 @@ Install anaconda. From the root folder, run:
 
 `conda env create -f environment.yaml --name internn`
 
+(or if you have a specific path)
+`conda env create -f environment.yaml --prefix ../env/internn`
+
 ::cross fingers::
 
 To activate, run: 
