@@ -78,6 +78,37 @@ class VGG(nn.Module):
         return F.log_softmax(x, dim=1)
 
 
+class VGG_embedding(VGG):
+
+    def __init__(self, num_classes=62, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.embedding = nn.Sequential(
+            nn.Dropout(p=0.5),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.5),
+            nn.Linear(512, num_classes),
+        )
+
+    def get_embedding(self, x):
+        x = self.l1(x)
+        x = self.l2(x)
+        x = self.l3(x)
+        x = self.l4(x)
+        x = x.view(x.size(0), -1)
+        return self.embedding(x)
+
+    def forward(self, x):
+        x = self.get_embedding(x)
+        x = self.classifier(x)
+        return F.log_softmax(x, dim=1)
+
+
 Half_width = 128
 layer_width = 128
 
@@ -170,3 +201,24 @@ class SpinalVGG(nn.Module):
         x = self.fc_out(x)
 
         return F.log_softmax(x, dim=1)
+
+def verify_vggs_consistent():
+    """ Make sure the one with the embedding layer
+
+    Returns:
+
+    """
+    import torch
+    dim = 2,1,24,24
+    device="cuda"
+    device="cpu"
+    batch = torch.rand(*dim).to(device)
+    model1 = VGG().to(device)
+    model2 = VGG_embedding().to(device)
+
+    x = model1(batch)
+    y = model2(batch)
+    torch.allclose(x,y)
+
+if __name__=="__main__":
+    verify_vggs_consistent()
