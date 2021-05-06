@@ -9,6 +9,7 @@ STYLE\ TRANSFER/
 GT_SWAP/
 renderer/stroke_models/
 
+wandb/
 # Prepare_IAM (Handwriting Database)A
 
 # results
