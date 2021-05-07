@@ -65,26 +65,15 @@ class SentencesDataset(Dataset):
         b = a + 32
         sentence = self.text[a:b]
         x = list()
-        # tensor = torch.tensor(self.emnist_loaded.sample(sentence[0]))
-        # tensor.un
-        # labels = torch.tensor(letter_to_num(sentence[0]))
-
+        y = list()
         for char in sentence:
-            # if char == sentence[0]:
-            #     continue
-            # torch.stack([tensor, self.emnist_loaded.sample(char)])
-            # torch.stack([labels, letter_to_num(char)])
-            temp_label = char
+            x.append(self.emnist_loaded.sample(char))  # list of tuples of images [0], with labels [1]
+            y.append(letter_to_num(char))
 
-            #x.append((self.emnist_loaded.sample(char), char)) # list of tuples of images [0], with labels [1]
-        #pdb.set_trace()
-        #for data in x:
-        #    print(data[1])
-        #pdb.set_trace()
-
-        # Convert list of pytorch tensors into one tensor
-
-        return x
+        # Convert into a tensor for each list of tensors and return them in a pair
+        x = torch.stack(x)
+        y = torch.from_numpy(np.array(y))
+        return x, y
 
 
 class EmnistSampler:
@@ -93,9 +82,9 @@ class EmnistSampler:
         train_dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
                                                     transform=torchvision.transforms.Compose(
                                                         [  # Composes several transforms together
-                                                            torchvision.transforms.RandomPerspective(),
+                                                            #torchvision.transforms.RandomPerspective(),
                                                             # %50 percent chance the image perspective will change(distorted)
-                                                            torchvision.transforms.RandomRotation(10, fill=(0,)),
+                                                            #torchvision.transforms.RandomRotation(10, fill=(0,)),
                                                             torchvision.transforms.ToTensor(),
                                                             # Convert a PIL image or np.ndarray to tensor
                                                             torchvision.transforms.Normalize((0.1307,), (0.3081,))
@@ -128,17 +117,23 @@ class EmnistSampler:
         img_idx = random.randrange(0, len(self.letters[char]) - 1)
         return self.letters[char][img_idx]
 
-#pdb.set_trace()
+
 sen_dataset = SentencesDataset("./text_generation/clean_text.txt")
-train_loader = torch.utils.data.DataLoader(sen_dataset[0][:], batch_size=32, shuffle=False)
-#pdb.set_trace()
+train_loader = torch.utils.data.DataLoader(sen_dataset, batch_size=32, shuffle=False)
+#train_loader = torch.utils.data.DataLoader(sen_dataset[0][:], batch_size=32, shuffle=False)
+
 for i_batch, sample in enumerate(train_loader):
     print("Epoch {}, Batch size {}\n".format(i_batch, 32))
     if i_batch == 0:
-        print("Sentence is: {}".format(sample[1][:]))
         for i in range(32):
-            plot(sample[0][i], letter_to_num(sample[1][i]))
-        pdb.set_trace()
+            #print(num_to_letter(sample[1][0][i]))
+            test = sample[0][0][i]
+            test = torchvision.transforms.functional.hflip(test)
+            #plot(test, sample[1][0][i])
+            test = torchvision.transforms.functional.rotate(test, 90)
+            plot(test, sample[1][0][i])
+        break
+
 
 print("Done")
 

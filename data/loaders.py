@@ -5,7 +5,7 @@ This code trains both NNs as two different models.
 This code randomly changes the learning rate to get a good result.
 @author: Dipu
 """
-import pdb
+
 
 import torch
 import torchvision
@@ -25,11 +25,11 @@ def loader(batch_size_train = 100,
 
     train_loader = torch.utils.data.DataLoader(
       torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
-                                 transform=torchvision.transforms.Compose([ # Composes several transforms together
-                                   torchvision.transforms.RandomPerspective(), # %50 percent chance the image perspective will change(distorted)
+                                 transform=torchvision.transforms.Compose([
+                                   torchvision.transforms.RandomPerspective(),
                                    torchvision.transforms.RandomRotation(10, fill=(0,)),
-                                   torchvision.transforms.ToTensor(), #Convert a PIL image or np.ndarray to tenosry
-                                   torchvision.transforms.Normalize( # (mean, std)
+                                   torchvision.transforms.ToTensor(),
+                                   torchvision.transforms.Normalize(
                                      (0.1307,), (0.3081,))
                                  ])),
       batch_size=batch_size_train, shuffle=True)
@@ -46,7 +46,7 @@ def loader(batch_size_train = 100,
     examples = enumerate(test_loader)
     batch_idx, (example_data, example_targets) = next(examples)
 
-    pdb.set_trace()
+
     print(example_data.shape)
     plot(example_data, example_targets)
     return train_loader, test_loader
@@ -62,6 +62,5 @@ def plot(example_data, example_targets):
       plt.title("Ground Truth: {}".format(example_targets[i]))
       plt.xticks([])
       plt.yticks([])
-    plt.show()
-    #plt.savefig("./output/")
-    #fig
+    plt.savefig("./output/")
+    fig

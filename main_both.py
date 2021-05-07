@@ -2,7 +2,7 @@
 # CNN
 # LM
 import pdb
-
+import os
 import torch
 import torchvision
 import math
@@ -11,6 +11,7 @@ import numpy as np
 from models.VGG import *
 import argparse
 from data import loaders
+os.environ['CUDA_VISIBLE_DEVICES'] = str(0)
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -40,7 +41,7 @@ def main(num_epochs = 200,
     total_step = len(train_loader)
     curr_lr1 = learning_rate
 
-    model1 = VGG().to(device)
+    model1 = VGG_embedding().to(device)
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
