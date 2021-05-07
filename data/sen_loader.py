@@ -65,13 +65,25 @@ class SentencesDataset(Dataset):
         b = a + 32
         sentence = self.text[a:b]
         x = list()
+        # tensor = torch.tensor(self.emnist_loaded.sample(sentence[0]))
+        # tensor.un
+        # labels = torch.tensor(letter_to_num(sentence[0]))
+
         for char in sentence:
-            #pdb.set_trace()
-            x.append((self.emnist_loaded.sample(char), char)) # list of tuples of images [0], with labels [1]
+            # if char == sentence[0]:
+            #     continue
+            # torch.stack([tensor, self.emnist_loaded.sample(char)])
+            # torch.stack([labels, letter_to_num(char)])
+            temp_label = char
+
+            #x.append((self.emnist_loaded.sample(char), char)) # list of tuples of images [0], with labels [1]
         #pdb.set_trace()
         #for data in x:
         #    print(data[1])
         #pdb.set_trace()
+
+        # Convert list of pytorch tensors into one tensor
+
         return x
 
 
@@ -130,6 +142,7 @@ for i_batch, sample in enumerate(train_loader):
 
 print("Done")
 
+#Collate fn
 
 """ TODO
 
