@@ -5,6 +5,20 @@ import math
 import torch.nn.functional as F
 import numpy as np
 
+def saveEmbeddings(tensor, PATH):
+    torch.save(tensor, PATH)
+    return
+
+def saveVGG(model):
+    PATH = './saved_models/vgg_emb_trained.pt'
+    torch.save(model.state_dict(), PATH)
+    return
+
+def loadVGG(model):
+    PATH = './saved_models/vgg_emb_trained.pt'
+    model.load_state_dict(torch.load(PATH))
+    model.eval() # Set dropout and batch layers to evaluation mode before running inference
+
 class VGG(nn.Module):
     """
     Based on - https://github.com/kkweon/mnist-competition
@@ -67,6 +81,7 @@ class VGG(nn.Module):
             nn.Dropout(p=0.5),
             nn.Linear(512, num_classes),
         )
+
 
     def forward(self, x):
         x = self.l1(x)

@@ -134,16 +134,8 @@ for i_batch, sample in enumerate(train_loader):
             plot(test, sample[1][0][i])
         break
 
-
-print("Done")
+exit()
 
 #Collate fn
 
-""" TODO
 
-Question for Taylor
-- Added my own custom image for spaces
-- Format of the batch
-
-
-"""
