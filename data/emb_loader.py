@@ -1,7 +1,10 @@
 import torch
 import errno
+import torch.nn.functional as F
 import os
 from torch.utils.data import Dataset, DataLoader
+os.environ['CUDA_VISIBLE_DEVICES'] = str(0)
+
 
 class VggEmbeddingsDataset(Dataset):
     def __init__(self, PATH):
@@ -14,7 +17,7 @@ class VggEmbeddingsDataset(Dataset):
             self.y = dataset[1]
             self.len = len(self.y)
         except FileNotFoundError:
-            print("File not found. Check path to File. ")
+            print("File not found. Check path to File.")
 
 
 
@@ -26,16 +29,20 @@ class VggEmbeddingsDataset(Dataset):
         return self.x[item], self.y[item]
 
     def save_dataset(self, x, y, PATH):
-        torch.save((x, y), PATH)
+        one_hot_labels = F.one_hot(y)
+        torch.save((x, one_hot_labels), PATH)
 
 
 
-emb_dataset = VggEmbeddingsDataset('../embeddings_dataset.pt')
+emb_dataset = VggEmbeddingsDataset('../emb_dataset.pt')
 train_loader = torch.utils.data.DataLoader(emb_dataset, batch_size=32, shuffle=False)
 
 for i_batch, sample in enumerate(train_loader):
     if i_batch == 0:
-        print("Batch Data = ", sample[0].shape)
-        print("Labels = ", sample[1].shape)
+        print(sample[0])
+        print("Batch Data Shape = ", sample[0].shape)
+        print("Num Batch Labels = ", sample[1].shape)
+
+
         break
 

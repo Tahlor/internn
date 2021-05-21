@@ -115,10 +115,11 @@ def calc_embeddings():
             else:
                 data = torch.cat((data, x[i]), 0)
                 labs = torch.cat((labs, y[i]), 0)
+
     # Initialize embeddings dataset
-    embedd1 = VggEmbeddingsDataset('embeddings_dataset.pt')
+    embedd1 = VggEmbeddingsDataset('./emb_dataset.pt')
     # Save new calculated embeddings
-    #embedd1.save_dataset(data, labs, 'emb_dataset.pt')
+    embedd1.save_dataset(data, labs, 'emb_dataset.pt')
     exit()
     # save
 
