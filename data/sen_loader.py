@@ -3,6 +3,7 @@ import pdb
 import random
 import torch
 import torchvision
+import torchvision.transforms.functional as F
 import matplotlib.pyplot as plt
 import pandas
 import string
@@ -45,11 +46,11 @@ def plot(data, label):
 class SentencesDataset(Dataset):
     """Dataset for sentences of 32 characters"""
 
-    def __init__(self, file):
-        self.emnist_loaded = EmnistSampler('./sorted_emnist.pt')
+    def __init__(self, PATH, which):
+        self.emnist_loaded = EmnistSampler(PATH, which)
         # test = self.emnist_loaded.sample('b')
         # plot(test, 2)
-
+        file = "./text_generation/clean_text.txt"
         self.text = open_file(file)
         self.len = len(self.text)
         random.seed = random.random()
@@ -77,30 +78,36 @@ class SentencesDataset(Dataset):
 
 
 class EmnistSampler:
-    def __init__(self, PATH = None):
+    def __init__(self, PATH = None, which='train'):
         # Load sorted_emnist if PATH is given
         if PATH:
-            self.letters = torch.load('./sorted_emnist.pt')
+            self.letters = torch.load(PATH)
             return
 
+        if which == 'train':
+            dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
+                                                        transform=torchvision.transforms.Compose(
+                                                            [   # Fix image orientation
+                                                                lambda img: F.rotate(img, -90),
+                                                                lambda img: F.hflip(img),
+                                                                torchvision.transforms.ToTensor(),
+                                                                # Convert a PIL image or np.ndarray to tensor
+                                                                torchvision.transforms.Normalize((0.1307,), (0.3081,))
+                                                                # (mean, std)
+                                                            ]))  # , shuffle=True)
+        else:
+            dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=False, download=True,
+                                                  transform=torchvision.transforms.Compose(
+                                                      [  # Fix image orientation
+                                                          lambda img: F.rotate(img, -90),
+                                                          lambda img: F.hflip(img),
+                                                          torchvision.transforms.ToTensor(),
+                                                          torchvision.transforms.Normalize((0.1307,), (0.3081,))
+                                                      ]))  # , shuffle=True)
 
-        # train_loader = torch.utils.data.DataLoader(
-        train_dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
-                                                    transform=torchvision.transforms.Compose(
-                                                        [  # Composes several transforms together
-                                                            #torchvision.transforms.RandomPerspective(),
-                                                            # %50 percent chance the image perspective will change(distorted)
-                                                            #torchvision.transforms.RandomRotation(10, fill=(0,)),
-                                                            torchvision.transforms.ToTensor(),
-                                                            # Convert a PIL image or np.ndarray to tensor
-                                                            torchvision.transforms.Normalize((0.1307,), (0.3081,))
-                                                            # (mean, std)
-                                                        ]))  # , shuffle=True)
-        #pdb.set_trace()
+        # Store Training Dataset
         letters = {}
-        for x in train_dataset:
-            #pdb.set_trace()
-
+        for x in dataset:
             #plot(x[0], x[1])
             char = num_to_letter(x[1])
             if char in letters:
@@ -108,17 +115,17 @@ class EmnistSampler:
             else:
                 letters[char] = list()
                 letters[char].append(x[0])
-
         self.letters = letters
 
         # Save dictionary of lists of char images
-        #torch.save(self.letters, 'sorted_emnist.pt')
+        if which == 'train':
+            torch.save(self.letters, 'sorted_train_emnist.pt')
+        else:
+            torch.save(self.letters, 'sorted_test_emnist.pt')
 
-        #pdb.set_trace()
         return
 
     def sample(self, char):
-        #pdb.set_trace()
         if char == ' ':
             space_tensor = np.full((1, 28, 28), fill_value=-0.4242)
             return torch.from_numpy(space_tensor)
@@ -128,24 +135,26 @@ class EmnistSampler:
         return self.letters[char][img_idx]
 
 
-sen_dataset = SentencesDataset("./text_generation/clean_text.txt")
-train_loader = torch.utils.data.DataLoader(sen_dataset, batch_size=32, shuffle=False)
-#train_loader = torch.utils.data.DataLoader(sen_dataset[0][:], batch_size=32, shuffle=False)
+def example_sen_loader():
+    train_dataset = SentencesDataset('./sorted_train_emnist.pt', 'train')
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
 
-for i_batch, sample in enumerate(train_loader):
-    print("Epoch {}, Batch size {}\n".format(i_batch, 32))
-    if i_batch == 0:
-        for i in range(32):
-            #print(num_to_letter(sample[1][0][i]))
-            test = sample[0][0][i]
-            test = torchvision.transforms.functional.hflip(test)
-            #plot(test, sample[1][0][i])
-            test = torchvision.transforms.functional.rotate(test, 90)
-            plot(test, sample[1][0][i])
-        break
+    test_dataset = SentencesDataset('./sorted_test_emnist.pt', 'test')
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
 
-exit()
+    for i_batch, sample in enumerate(train_loader):
+        print("Epoch {}, Batch size {}\n".format(i_batch, 32))
+        if i_batch == 0:
+            for i in range(32):
+                test = sample[0][0][i]
+                plot(test, sample[1][0][i])
+            break
+        exit()
 
-#Collate fn
+# Run Example
+example_sen_loader()
+
+
+
 
 

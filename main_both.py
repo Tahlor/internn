@@ -134,7 +134,10 @@ def main(num_epochs = 200,
     #calc_embeddings()
     #test_model_load()
 
+    # Loads random characters
     train_loader, test_loader = loaders.loader(batch_size_train = 100, batch_size_test = 1000)
+
+    # Loads 32 character sentences
 
     # Train the model
     total_step = len(train_loader)
@@ -210,6 +213,6 @@ def main(num_epochs = 200,
                 # saveVGG(model1)
 
             model1.train()
-    #saveVGG(best_model) Uncomment for use on the super computer
+    saveVGG(best_model) # Uncomment for use on the fsl otherwise to get a saved model training needs to run to finish
 if __name__=='__main__':
     main()

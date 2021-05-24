@@ -12,11 +12,20 @@ import torchvision
 import torch.nn as nn
 import math
 import torch.nn.functional as F
+from sen_loader import *
 import numpy as np
 
 
 def advanced_loader():
     pass
+
+def sentence_loader():
+    train_dataset = SentencesDataset(None, 'train')
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=100, shuffle=False)
+
+    test_dataset = SentencesDataset(None, 'test')
+    test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=100, shuffle=False)
+
 
 def loader(batch_size_train = 100,
            batch_size_test = 1000,
