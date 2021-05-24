@@ -2,6 +2,7 @@
 test/swaps/
 # Data
 *.pt
+!emb_dataset.pt
 *.lnk*
 *.slurm
 ~archive/

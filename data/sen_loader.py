@@ -46,7 +46,7 @@ class SentencesDataset(Dataset):
     """Dataset for sentences of 32 characters"""
 
     def __init__(self, file):
-        self.emnist_loaded = EmnistSampler()
+        self.emnist_loaded = EmnistSampler('./sorted_emnist.pt')
         # test = self.emnist_loaded.sample('b')
         # plot(test, 2)
 
@@ -77,7 +77,13 @@ class SentencesDataset(Dataset):
 
 
 class EmnistSampler:
-    def __init__(self):
+    def __init__(self, PATH = None):
+        # Load sorted_emnist if PATH is given
+        if PATH:
+            self.letters = torch.load('./sorted_emnist.pt')
+            return
+
+
         # train_loader = torch.utils.data.DataLoader(
         train_dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
                                                     transform=torchvision.transforms.Compose(
@@ -104,6 +110,10 @@ class EmnistSampler:
                 letters[char].append(x[0])
 
         self.letters = letters
+
+        # Save dictionary of lists of char images
+        #torch.save(self.letters, 'sorted_emnist.pt')
+
         #pdb.set_trace()
         return
 

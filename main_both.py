@@ -131,7 +131,7 @@ def main(num_epochs = 200,
          *args,
          **kwargs):
 
-    calc_embeddings()
+    #calc_embeddings()
     #test_model_load()
 
     train_loader, test_loader = loaders.loader(batch_size_train = 100, batch_size_test = 1000)
@@ -151,6 +151,7 @@ def main(num_epochs = 200,
     total_step = len(train_loader)
 
     best_accuracy1 = 0
+    best_model = None
 
     ### VISUAL PART
 
@@ -204,10 +205,11 @@ def main(num_epochs = 200,
                 net_opt1 = model1
                 print('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
 
-                # Save best model
-                saveVGG(model1)
+                # Save best model - Comment out if you intend on using the supercomputer to only write the best model after training
+                best_model = model1
+                # saveVGG(model1)
 
             model1.train()
-
+    #saveVGG(best_model) Uncomment for use on the super computer
 if __name__=='__main__':
     main()
