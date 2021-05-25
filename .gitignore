@@ -3,7 +3,8 @@ test/swaps/
 # Data
 *.pt
 !emb_dataset.pt
-!sorted_emnist.pt
+!sorted_test_emnist.pt
+!sorted_train_emnist.pt
 *.lnk*
 *.slurm
 ~archive/
