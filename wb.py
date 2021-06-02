@@ -1,7 +1,10 @@
 import wandb
+from subprocess import Popen
 
+Popen("ssh -fNt -D 41080 tarch@login04.rc.byu.edu", shell=True)
 
 def socks():
+    # Not working correctly
     from subprocess import Popen
     #Popen("ssh -fNt -D 1080 tarch@login04.rc.byu.edu", shell=True)
     #Popen("ssh -fNt -D 1080 taylor@legentil", shell=True)
@@ -18,8 +21,13 @@ nano socket.py
 import socks
 socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 1080)
 socket = socks.socksocket
-"""
 socks()
+"""
+
+# nano ../env/internn/lib/python3.8/socket.py
+# import socks
+# socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 41080)
+# socket = socks.socksocket
 
 # 1. Start a new run
 wandb.init(project="TEST")
