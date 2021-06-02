@@ -8,11 +8,17 @@ def socks():
     import socks
     import socket
     from urllib import request
-    from urllib3 import request
-    import requests, urllib3, urllib
+    from requests import utils
     socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 1080)
     socket.socket = socks.socksocket
 
+"""
+nano socket.py
+
+import socks
+socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 1080)
+socket = socks.socksocket
+"""
 socks()
 
 # 1. Start a new run
@@ -28,3 +34,8 @@ config.dropout = 0.01
 #127.0.0.1 api.wandb.ai
 #127.0.0.1 wandb.ai
 #127.0.0.1 www.api.wandb.ai
+
+from requests import Session
+
+import sys
+sys.exit()
