@@ -5,6 +5,20 @@ import math
 import torch.nn.functional as F
 import numpy as np
 
+def saveEmbeddings(tensor, PATH):
+    torch.save(tensor, PATH)
+    return
+
+def saveVGG(model):
+    PATH = './saved_models/vgg.pt'
+    torch.save(model.state_dict(), PATH)
+    return
+
+def loadVGG(model):
+    PATH = './saved_models/vgg.pt'
+    model.load_state_dict(torch.load(PATH))
+    model.eval() # Set dropout and batch layers to evaluation mode before running inference
+
 class VGG(nn.Module):
     """
     Based on - https://github.com/kkweon/mnist-competition
@@ -52,7 +66,7 @@ class VGG(nn.Module):
                 m.bias.data.zero_()
         return s
 
-    def __init__(self, num_classes=62):
+    def __init__(self, num_classes=27):#62):
         super(VGG, self).__init__()
         self.l1 = self.two_conv_pool(1, 64, 64)
         self.l2 = self.two_conv_pool(64, 128, 128)
@@ -68,12 +82,44 @@ class VGG(nn.Module):
             nn.Linear(512, num_classes),
         )
 
+
     def forward(self, x):
         x = self.l1(x)
         x = self.l2(x)
         x = self.l3(x)
         x = self.l4(x)
         x = x.view(x.size(0), -1)
+        x = self.classifier(x)
+        return F.log_softmax(x, dim=1)
+
+
+class VGG_embedding(VGG):
+
+    def __init__(self, num_classes=27, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        self.embedding = nn.Sequential(
+            nn.Dropout(p=0.5),
+            nn.Linear(256, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(inplace=True),
+        )
+
+        self.classifier = nn.Sequential(
+            nn.Dropout(p=0.5),
+            nn.Linear(512, num_classes),
+        )
+
+    def get_embedding(self, x):
+        x = self.l1(x)
+        x = self.l2(x)
+        x = self.l3(x)
+        x = self.l4(x)
+        x = x.view(x.size(0), -1)
+        return self.embedding(x)
+
+    def forward(self, x):
+        x = self.get_embedding(x)
         x = self.classifier(x)
         return F.log_softmax(x, dim=1)
 
@@ -129,7 +175,7 @@ class SpinalVGG(nn.Module):
                 m.bias.data.zero_()
         return s
 
-    def __init__(self, num_classes=62):
+    def __init__(self, num_classes=27):#62):
         super(SpinalVGG, self).__init__()
         self.l1 = self.two_conv_pool(1, 64, 64)
         self.l2 = self.two_conv_pool(64, 128, 128)
@@ -170,3 +216,24 @@ class SpinalVGG(nn.Module):
         x = self.fc_out(x)
 
         return F.log_softmax(x, dim=1)
+
+def verify_vggs_consistent():
+    """ Make sure the one with the embedding layer
+
+    Returns:
+
+    """
+    import torch
+    dim = 2,1,24,24
+    device="cuda"
+    device="cpu"
+    batch = torch.rand(*dim).to(device)
+    model1 = VGG().to(device)
+    model2 = VGG_embedding().to(device)
+
+    x = model1(batch)
+    y = model2(batch)
+    torch.allclose(x,y)
+
+if __name__=="__main__":
+    verify_vggs_consistent()

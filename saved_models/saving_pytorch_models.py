@@ -1,3 +1,15 @@
+import glob
+from pathlib import Path
+import json
+import warnings
+import os
+import torch
+
+def dict_to_list(d):
+    idx_to_char = []
+    for i in range(0, max(d.keys())+1):
+        idx_to_char.append(d[i])
+    return idx_to_char
 
 def load_model(config):
     # User can specify folder or .pt file; other files are assumed to be in the same folder
@@ -7,10 +19,6 @@ def load_model(config):
     else:
         old_state = torch.load(os.path.join(config["load_path"], "baseline_model.pt"))
         path = config["load_path"]
-
-    # Load the definition of the loaded model if it was saved
-    # if "model_definition" in old_state.keys():
-    #     config["model"] = old_state['model_definition']
 
     for key in ["idx_to_char", "char_to_idx"]:
         if key in old_state.keys():
@@ -36,40 +44,6 @@ def load_model(config):
             warnings.warn("Unable to load from visdom.json; does the file exist?")
             ## RECREATE VISDOM FROM FILE IF VISDOM IS NOT FOUND
 
-    # Load Loss History
-    stat_path = os.path.join(path, "all_stats.json")
-    loss_path = os.path.join(path, "losses.json")
-
-    if Path(loss_path).exists():
-        with open(loss_path, 'r') as fh:
-            losses = json.load(fh)
-    else:
-        print("losses.json not found in load_path folder")
-    try:
-        config["train_cer"] = losses["train_cer"]
-        config["test_cer"] = losses["test_cer"]
-        config["validation_cer"] = losses["validation_cer"]
-    except:
-        warnings.warn("Could not load from losses.json")
-        config["train_cer"]=[]
-        config["test_cer"] = []
-
-    # Load stats
-    try:
-        with open(stat_path, 'r') as fh:
-            stats = json.load(fh)
-        # Update the counter - not implemented yet??
-        counter = stats["counter"]
-        config.counter.__dict__.update(counter)
-
-        # Load stats
-        stats = stats["stats"]
-        for name, stat in config["stats"].items():
-            if isinstance(stat, Stat):
-                config["stats"][name].y = stats[name]["y"]
-            else:
-                for i in stats[name]: # so we don't mess up the reference etc.
-                    config["stats"][name].append(i)
 
     except:
         warnings.warn("Could not load from all_stats.json")

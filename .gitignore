@@ -1,6 +1,7 @@
 .git2/
 test/swaps/
 # Data
+
 *.pt
 *.lnk*
 *.slurm
@@ -9,7 +10,8 @@ STYLE\ TRANSFER/
 GT_SWAP/
 renderer/stroke_models/
 
-# Prepare_IAM (Handwriting Database)
+wandb/
+# Prepare_IAM (Handwriting Database)A
 
 # results
 RESULTS/
@@ -43,6 +45,7 @@ hwr_utils/RESULTS/COMPARISON/
 #data/prepare_online_data/training_test_splits/
 #data/prepare_online_data/online_augmentation.json
 #data/
+data/text_generation
 data.zip
 
 writer_IDs.pickle
