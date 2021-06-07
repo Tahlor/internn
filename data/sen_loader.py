@@ -209,8 +209,6 @@ class EmbeddingSampler:
         # if char.isupper():
         #     char = char.lower()
         emb_idx = random.randrange(0, len(self.letters[char]) - 1)
-        if emb_idx < 0:
-            print("here")
         return self.letters[char][emb_idx]
 
 class EmnistSampler:
@@ -274,42 +272,60 @@ def collate_fn(data):
     """
     Args:
         data: is a list (len is the batch size) of tuples with (char_embedding, label, length),
-        char_embedding: is a tensor of shape([?-32, 512])
+
+        emb: is a tensor of shape([?-32, 512])
         label: is a tensor of shape([?-31, 27]) (one hot encoded)
 
     """
 
-    _, labels, lengths = zip(*data) # Unpacks the iterable data object into 3 parts
+    emb, labels, outputs = zip(*data) # Unpacks the iterable data object into 3 parts
     max_len = 32
+    num_outputs = 27
+    emb_len = 512
     sen_len = data[0][0].size(0)
+    num_batches = len(data)
 
-    # Pad label vectors
-    pad_labels = torch.zeros((len(data), max_len)).int()
-    for i in range(len(data)):
-        j = labels[i].size(0) # num of labels
-        pad_labels[i] = torch.cat([labels[i], torch.zeros(max_len - j)])
+    new_labels = []
+    # Pad each label vectors seperately
+    for batch_idx in range(num_batches):
+        padded_label = torch.zeros(max_len, num_outputs).int()
+        j = labels[batch_idx].size(0) # num of labels
+        padded_label = torch.cat([labels[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')])
+        new_labels.append(padded_label)
+    # Stack label vectors
+    labels = torch.stack(new_labels)
 
-    # Pad sentences that aren't the correct length
-    features = torch.zeros((len(data), max_len, sen_len, 28, 28))
-    for i in range(len(data)): # Loop through each row of data in batch (Ex. 100)
-        j = data[i][0].size(0) # j is num of chars in a sentence
-        features[i] = torch.cat([data[i][0], torch.zeros((max_len - j, sen_len, 28, 28))])
+    new_outputs = []
+    # Pad each output vectors seperately
+    for batch_idx in range(num_batches):
+        padded_output= torch.zeros(max_len, num_outputs).int()
+        j = outputs[batch_idx].size(0)  # num of labels
+        padded_output = torch.cat([outputs[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')])
+        new_outputs.append(padded_output)
+    # Stack output vectors
+    outputs = torch.stack(new_outputs)
 
-    lengths = torch.tensor(lengths)
+    # Pad sentences
+    new_embs = []
+    for batch_idx in range(num_batches):  # Loop through each batch.
+        curr_emb = torch.zeros(max_len, emb_len).int()  # batch = 1 ([32, 512)], batch = 2 ([64, 512])
+        j = emb[batch_idx].size(0)  # num of labels
+        curr_emb = torch.cat([emb[batch_idx], torch.zeros(max_len - j, emb_len, device='cuda:0')])
+        new_embs.append(curr_emb)
+    embs = torch.stack(new_embs)
 
-    return features, pad_labels #, lengths
+    return embs, labels, outputs
 
 def example_sen_loader():
 
     train_dataset = SentenceEmbDataset('sen_emb_data.pt')
-    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=1, shuffle=False)
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
 
     for i_batch, sample in enumerate(train_loader):
-        print("Epoch {}, Batch size {}\n".format(i_batch, 1))
-
-        print("Embeddings shape: ", sample[0][0].shape)
-        print("Labels shape: ", sample[1][0].shape)  # (One hot encoded)
-        print("Output shape: ", sample[2][0].shape)
+        print("Epoch {}, Batch size {}\n".format(i_batch, 2))
+        print("Embeddings shape: ", sample[0].shape)
+        print("Labels shape: ", sample[1].shape)  # (One hot encoded)
+        print("Output shape: ", sample[2].shape)
 
         if i_batch == 5:
             exit()
