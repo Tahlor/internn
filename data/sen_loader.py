@@ -88,6 +88,7 @@ class SentenceEmbDataset(Dataset):
         x = list()
         y = list()
         z = list()
+        sen_len = len(sentence)
         for char in sentence:
             if char == ' ':
                 x.append(self.space[0])
@@ -106,7 +107,7 @@ class SentenceEmbDataset(Dataset):
         y = torch.stack(y)
         y = FN.one_hot(y, num_classes=27)
         z = torch.stack(z)
-        return x, y, z
+        return x, y, z, sen_len
 
     def get_space(self):
         x = torch.tensor([0.0000, 0.0000, 0.3574, 0.5313, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
@@ -278,7 +279,7 @@ def collate_fn(data):
 
     """
 
-    emb, labels, outputs = zip(*data) # Unpacks the iterable data object into 3 parts
+    emb, labels, outputs, lengths = zip(*data) # Unpacks the iterable data object into 3 parts
     max_len = 32
     num_outputs = 27
     emb_len = 512
@@ -314,11 +315,11 @@ def collate_fn(data):
         new_embs.append(curr_emb)
     embs = torch.stack(new_embs)
 
-    return embs, labels, outputs
+    return embs, labels, outputs, lengths
 
 def example_sen_loader():
 
-    train_dataset = SentenceEmbDataset('sen_emb_data.pt')
+    train_dataset = SentenceEmbDataset()#'sen_emb_data.pt')
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
 
     for i_batch, sample in enumerate(train_loader):
@@ -326,6 +327,7 @@ def example_sen_loader():
         print("Embeddings shape: ", sample[0].shape)
         print("Labels shape: ", sample[1].shape)  # (One hot encoded)
         print("Output shape: ", sample[2].shape)
+        print("Sen Lengths: ", sample[3].shape)
 
         if i_batch == 5:
             exit()
