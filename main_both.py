@@ -203,7 +203,7 @@ def main(num_epochs = 200,
             # Backward and optimize
             optimizer1.zero_grad() # clears old gradients from the previus step
             loss1.backward() # computes the derivative of the loss w,r,t the params using back propogation
-            optimizer1.step() # causes the optimizer to take a step based on the gradients of the params
+            optimizer1.step() # causes the optimizer to take a step based on the gradients of the params (updates the weights)
 
             if i == 499:
                 print("Ordinary Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}"

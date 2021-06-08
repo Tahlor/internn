@@ -327,7 +327,7 @@ def example_sen_loader():
         print("Embeddings shape: ", sample[0].shape)
         print("Labels shape: ", sample[1].shape)  # (One hot encoded)
         print("Output shape: ", sample[2].shape)
-        print("Sen Lengths: ", sample[3].shape)
+        print("Sen Lengths: ", sample[3])
 
         if i_batch == 5:
             exit()
