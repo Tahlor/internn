@@ -157,14 +157,6 @@ def main(num_epochs = 200,
     # Loads random characters
     train_loader, test_loader = loaders.loader(batch_size_train = 100, batch_size_test = 1000)
 
-    #WIP: There is a 5th dimension and it needs to be 4 ([100, 32, 1, 28, 28]) => ([32, 1, 28, 28]) or ([64, 1, 28, 28])
-    # Loads 32 character sentences
-    # train_dataset = SentencesDataset(os.path.abspath('data/sorted_train_emnist.pt'), 'train')
-    # train_loader = torch.utils.data.DataLoader(train_dataset, collate_fn=collate_fn, batch_size=100, shuffle=False)
-
-    # test_dataset = SentencesDataset(os.path.abspath('data/sorted_test_emnist.pt'), 'test')
-    # test_loader = torch.utils.data.DataLoader(test_dataset, collate_fn=collate_fn, batch_size=100, shuffle=False)
-
     # Train the model
     total_step = len(train_loader)
     curr_lr1 = learning_rate

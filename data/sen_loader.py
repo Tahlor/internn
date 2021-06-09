@@ -30,7 +30,7 @@ def open_file(path):
 def num_to_letter(num):
     x = chr(num + 96)
     if x == '`':
-        x = "padding"
+        x = ' '
     return x
 
 
@@ -203,13 +203,14 @@ class SentenceDataset(Dataset):
     def num_to_letter(self, num):
         x = chr(num + 96)
         if x == '`':
-            x = "padding"
+            x = ' '
         return x
 
     def letter_to_num(self, char):
         if char == ' ':
             return 0
         return ord(char) - 96
+
 
 
 class EmbeddingSampler:
@@ -310,12 +311,11 @@ class EmnistSampler:
     def num_to_letter(self, num):
         x = chr(num + 96)
         if x == '`':
-            x = "padding"
+            x = ' '
         return x
 
     def letter_to_num(self, char):
         return ord(char) - 96
-
 
 def collate_fn(data):
     """
@@ -336,17 +336,17 @@ def collate_fn(data):
     num_outputs = 27
     sen_len = data[0][0].size(0)
     num_batches = len(data)
-    if len(data[0]) == 3: # Images
+    if len(data[0]) == 3:  # Images
         imgs, labels, lengths = zip(*data)
         new_imgs = []
         for batch_idx in range(num_batches):
             j = imgs[batch_idx].size(0)
-            curr_sen_of_imgs = torch.cat([imgs[batch_idx], torch.full((1, 1, 28, 28), fill_value=-0.4242)])
+            curr_sen_of_imgs = torch.cat((imgs[batch_idx], torch.full((1, 1, 28, 28), fill_value=-0.4242)))
             new_imgs.append(curr_sen_of_imgs)
         new_labels = []
         for batch_idx in range(num_batches):
             j = imgs[batch_idx].size(0)
-            curr_label = torch.cat([labels[batch_idx], torch.zeros(max_len - j, num_outputs)])
+            curr_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs)))
             new_labels.append(curr_label)
 
         return new_imgs, new_labels, lengths
@@ -359,7 +359,7 @@ def collate_fn(data):
         new_embs = []
         for batch_idx in range(num_batches):  # Loop through each batch.
             j = emb[batch_idx].size(0)  # num of labels
-            curr_emb = torch.cat([emb[batch_idx], torch.zeros(max_len - j, emb_len, device='cuda:0')])
+            curr_emb = torch.cat((emb[batch_idx], torch.zeros(max_len - j, emb_len, device='cuda:0')))
             new_embs.append(curr_emb)
         embs = torch.stack(new_embs)
 
@@ -367,7 +367,7 @@ def collate_fn(data):
         # Pad each label vectors seperately
         for batch_idx in range(num_batches):
             j = labels[batch_idx].size(0)  # num of labels
-            padded_label = torch.cat([labels[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')])
+            padded_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')))
             new_labels.append(padded_label)
         # Stack label vectors
         labels = torch.stack(new_labels)
@@ -376,12 +376,13 @@ def collate_fn(data):
         # Pad each output vectors seperately
         for batch_idx in range(num_batches):
             j = outputs[batch_idx].size(0)  # num of labels
-            padded_output = torch.cat([outputs[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')])
+            padded_output = torch.cat((outputs[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')))
             new_outputs.append(padded_output)
         # Stack output vectors
         outputs = torch.stack(new_outputs)
 
         return embs, labels, outputs, lengths
+
 
 def example_sen_loader():
     # train_dataset = SentenceDataset(PATH='sen_emb_data.pt', which='Embeddings')
@@ -411,4 +412,4 @@ def example_sen_loader():
 
 
 # Run Example
-example_sen_loader()
+# example_sen_loader()
