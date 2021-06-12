@@ -62,10 +62,7 @@ class SentenceDataset(Dataset):
         which: 'Images' or 'Embeddings'
         """
 
-    def __init__(self, PATH=None, which='Images'):
-        # self.emnist_loaded = EmnistSampler(PATH, which) # Loads imgs to sample from
-        # test = self.emnist_loaded.sample('b')
-        # plot(test, 2)
+    def __init__(self, PATH=None, which='Images', train=True):
         self.which = which
         if which == 'Images':
             if PATH is not None:
@@ -132,6 +129,22 @@ class SentenceDataset(Dataset):
             z = torch.stack(z)
             return x, y, z, sen_len
         return x, y, sen_len
+
+    def createSentenceDataset(self, sen_list_path = None, embedding_sampler_path = None,
+                              emnist_sampler_path = None, train = True, output_path=None):
+        """
+        Function for creating and saving a saved SentenceDataset object. It will store the train and test set of sorted
+        emnist images, train and test set of sorted embeddings, and a list of the 32 character sentences from our corpus.
+        Args:
+            sen_list_path: path to .pkl file that contains the list of 32 char sentences
+            embedding_sampler_path: path to .pt file that contains the embeddings
+            emnist_sampler_path: path to .pt file that contains the sorted emnist images
+            train: boolean value of True (default) or False to determine the train or test set
+            output_path: path to where the saved SentenceDataset object will be stored.
+        Returns: No return value
+        """
+
+        pass
 
     def get_space(self):
         x = torch.tensor([0.0000, 0.0000, 0.3574, 0.5313, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
@@ -341,13 +354,21 @@ def collate_fn(data):
         new_imgs = []
         for batch_idx in range(num_batches):
             j = imgs[batch_idx].size(0)
-            curr_sen_of_imgs = torch.cat((imgs[batch_idx], torch.full((1, 1, 28, 28), fill_value=-0.4242)))
+            if j == max_len:
+                new_imgs.append(imgs[batch_idx])
+                continue
+            curr_sen_of_imgs = torch.cat((imgs[batch_idx], torch.full((max_len - j, 1, 28, 28), fill_value=-0.4242)))
             new_imgs.append(curr_sen_of_imgs)
+
+        assert(new_imgs[0].shape[0] == 32)
+
         new_labels = []
         for batch_idx in range(num_batches):
             j = imgs[batch_idx].size(0)
             curr_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs)))
             new_labels.append(curr_label)
+
+        assert(new_labels[0].shape[0] == 32)
 
         return new_imgs, new_labels, lengths
 
@@ -383,21 +404,21 @@ def collate_fn(data):
 
         return embs, labels, outputs, lengths
 
+def sen_embeddings():
+    train_dataset = SentenceDataset(PATH='sen_emb_data.pt', which='Embeddings')
+    train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
 
-def example_sen_loader():
-    # train_dataset = SentenceDataset(PATH='sen_emb_data.pt', which='Embeddings')
-    # train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=emb_collate_fn, shuffle=False)
-    #
-    # for i_batch, sample in enumerate(train_loader):
-    #     print("Epoch {}, Batch size {}\n".format(i_batch, 2))
-    #     print("Embeddings shape: ", sample[0].shape)
-    #     print("Labels shape: ", sample[1].shape)  # (One hot encoded)
-    #     print("Output shape: ", sample[2].shape)
-    #     print("Sen Lengths: ", sample[3])
-    #
-    #     if i_batch == 5:
-    #         exit()
+    for i_batch, sample in enumerate(train_loader):
+        print("Epoch {}, Batch size {}\n".format(i_batch, 2))
+        print("Embeddings shape: ", sample[0].shape)
+        print("Labels shape: ", sample[1].shape)  # (One hot encoded)
+        print("Output shape: ", sample[2].shape)
+        print("Sen Lengths: ", sample[3])
 
+        if i_batch == 5:
+            exit()
+
+def sen_images():
     train_dataset = SentenceDataset(PATH='sen_img_data.pt', which='Images')
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
 
@@ -409,6 +430,11 @@ def example_sen_loader():
 
         if i_batch == 5:
             exit()
+
+def example_sen_loader():
+    # sen_embeddings()
+    sen_images()
+
 
 
 # Run Example

@@ -118,6 +118,9 @@ class VGG_embedding(VGG):
         x = x.view(x.size(0), -1)
         return self.embedding(x)
 
+    def forward_embedding(self, x):
+        pass
+
     def forward(self, x):
         x = self.get_embedding(x)
         x = self.classifier(x)
