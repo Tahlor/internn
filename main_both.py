@@ -108,10 +108,11 @@ def calc_embeddings():
         x = list()
         y = list()
         z = list()
-        for images, labels in test_loader:
+        for images, labels in train_loader:
             images = images.to(device)
             labels = labels.to(device)
             # # Calc embeddings for a space ' '
+
             # images = np.full((1, 28, 28), fill_value=-0.4242, dtype=np.float32)
             # images = torch.from_numpy(images)
             # images = torch.unsqueeze(images, 0)
@@ -119,9 +120,9 @@ def calc_embeddings():
             # labels = labels.to(device)
             # images = images.to(device)
 
-            outputs = model1.get_embedding(images)
-            pred = model1.classifier(outputs)
-            x.append(outputs)
+            embeddings = model1.get_embedding(images)
+            pred = model1.classifier(embeddings)
+            x.append(embeddings)
             y.append(labels)
             z.append(pred)
 
@@ -140,6 +141,53 @@ def calc_embeddings():
     embedd1 = VggEmbeddingsDataset('./emb_dataset.pt')
     # Save new calculated embeddings
     embedd1.save_dataset(data, labs, preds, 'emb_dataset_train.pt')
+
+    # Calculate Testset embeddings
+    model1 = VGG_embedding().to(device)
+    criterion = nn.CrossEntropyLoss()
+    optimizer1 = torch.optim.Adam(model1.parameters(), lr=learning_rate)
+    loadVGG(model1)
+    model1.eval()
+    data = None
+    labs = None
+    preds = None
+    with torch.no_grad():
+        correct1 = 0
+        total1 = 0
+        x = list()
+        y = list()
+        z = list()
+        for images, labels in test_loader:
+            images = images.to(device)
+            labels = labels.to(device)
+            # # Calc embeddings for a space ' '
+
+            # images = np.full((1, 28, 28), fill_value=-0.4242, dtype=np.float32)
+            # images = torch.from_numpy(images)
+            # images = torch.unsqueeze(images, 0)
+            # labels = torch.tensor([0])
+            # labels = labels.to(device)
+            # images = images.to(device)
+
+            embeddings = model1.get_embedding(images)
+            pred = model1.classifier(embeddings)
+            x.append(embeddings)
+            y.append(labels)
+            z.append(pred)
+
+        for i in range(len(x)):
+            if i == 0:
+                data = x[i]
+                labs = y[i]
+                preds = z[i]
+            else:
+                data = torch.cat((data, x[i]), 0)
+                labs = torch.cat((labs, y[i]), 0)
+                preds = torch.cat((preds, z[i]), )
+
+    # Save new calculated embeddings
+    embedd1.save_dataset(data, labs, preds, 'test_emb_dataset.pt')
+
     exit()
     # save
 

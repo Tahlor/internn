@@ -58,33 +58,50 @@ def load_sen_list(PATH):
 class SentenceDataset(Dataset):
     """Dataset for sentences of 32 characters that can be return as either images or embeddings
         args:
-        PATH: path to load the EmnistSampler from
+        PATH: path to load the EmnistSampler previously saved
         which: 'Images' or 'Embeddings'
         """
 
     def __init__(self, PATH=None, which='Images', train=True):
         self.which = which
-        if which == 'Images':
-            if PATH is not None:
-                loaded_data = torch.load(PATH)
-                self.images_loaded = loaded_data[0]
-                self.sentence_data = loaded_data[1]
-            else:
-                self.images_loaded = EmnistSampler('sorted_train_emnist.pt')
-                self.sentence_data = load_sen_list('text_generation/sent_list.pkl')
-                torch.save((self.images_loaded, self.sentence_data), 'sen_img_data.pt')
-
-        elif which == 'Embeddings':
-            if PATH is not None:
-                loaded_data = torch.load(PATH)
-                self.emb_loaded = loaded_data[0]
-                self.sentence_data = loaded_data[1]
-            else:
-                self.emb_loaded = EmbeddingSampler('emb_dataset_train.pt')  # Loads emb's to sample from
-                self.sentence_data = load_sen_list('text_generation/sent_list.pkl')  # Loads the sentences
-                # torch.save((self.emb_loaded, self.sentence_data), 'sen_emb_data.pt') # Save for quicker loading (Optional)
-        self.len = len(self.sentence_data)
+        self.train = train
+        if PATH != None:
+            sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded = torch.load(PATH)
+            if which == 'Images':
+                if train:
+                    self.images_loaded = train_images_loaded
+                else:
+                    self.images_loaded = test_images_loaded
+            elif which == 'Embeddings':
+                if train:
+                    self.emb_loaded = train_emb_loaded
+                else:
+                    self.emb_loaded = test_emb_loaded
+            self.sentence_data = sentence_data
+            self.len = len(self.sentence_data)
         self.space = self.get_space()
+
+
+        # if which == 'Images':
+        #     if PATH is not None:
+        #         loaded_data = torch.load(PATH)
+        #         self.images_loaded = loaded_data[0]
+        #         self.sentence_data = loaded_data[1]
+        #     else:
+        #         self.images_loaded = EmnistSampler('sorted_train_emnist.pt')
+        #         self.sentence_data = load_sen_list('text_generation/sent_list.pkl')
+        #         torch.save((self.images_loaded, self.sentence_data), 'sen_img_data.pt')
+        #
+        # elif which == 'Embeddings':
+        #     if PATH is not None:
+        #         loaded_data = torch.load(PATH)
+        #         self.emb_loaded = loaded_data[0]
+        #         self.sentence_data = loaded_data[1]
+        #     else:
+        #         self.emb_loaded = EmbeddingSampler('emb_dataset_train.pt')  # Loads emb's to sample from
+        #         self.sentence_data = load_sen_list('text_generation/sent_list.pkl')  # Loads the sentences
+        #         # torch.save((self.emb_loaded, self.sentence_data), 'sen_emb_data.pt') # Save for quicker loading (Optional)
+
 
     def __len__(self):
         return self.len
@@ -130,8 +147,12 @@ class SentenceDataset(Dataset):
             return x, y, z, sen_len
         return x, y, sen_len
 
-    def createSentenceDataset(self, sen_list_path = None, embedding_sampler_path = None,
-                              emnist_sampler_path = None, train = True, output_path=None):
+    def createSentenceDataset(self, sen_list_path,
+                              embedding_sampler_path_train,
+                              embedding_sampler_path_test,
+                              emnist_sampler_path_train,
+                              emnist_sampler_path_test,
+                              save_path):
         """
         Function for creating and saving a saved SentenceDataset object. It will store the train and test set of sorted
         emnist images, train and test set of sorted embeddings, and a list of the 32 character sentences from our corpus.
@@ -143,8 +164,23 @@ class SentenceDataset(Dataset):
             output_path: path to where the saved SentenceDataset object will be stored.
         Returns: No return value
         """
+        # sentence_data = load_sen_list('text_generation/sent_list.pkl')
+        # images_loaded = EmnistSampler('sorted_train_emnist.pt', 'train')
+        # emb_loaded = EmbeddingSampler('emb_dataset_train.pt', 'train')
+        print("Loading sentences...")
+        sentence_data = load_sen_list(sen_list_path)
+        print("Loading train emnist images...")
+        train_images_loaded = EmnistSampler(emnist_sampler_path_train, which='train')
+        print("Loading test emnist images...")
+        test_images_loaded = EmnistSampler(emnist_sampler_path_test, which='test')
+        print("Loading train embeddings...")
+        train_emb_loaded = EmbeddingSampler(embedding_sampler_path_train, which='train')
+        print("Loading test embeddings...")
+        test_emb_loaded = EmbeddingSampler(embedding_sampler_path_test, which='test')
+        torch.save((sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded), save_path)
+        print("SAVED AT " + save_path)
+        return
 
-        pass
 
     def get_space(self):
         x = torch.tensor([0.0000, 0.0000, 0.3574, 0.5313, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
@@ -230,35 +266,93 @@ class EmbeddingSampler:
     """ For Quick loading and sampling of the embeddings,
         DATA_PATH is the path to the embeddings tuple with [0] embeddings, [1] labels [2] output prob.
         DICT_PATH is the path to the pre-saved dictionary for the EmbeddingSample"""
+    def __init__(self, load_path=None, which='train'):
+        self.which=which
+        if load_path:
+            train_letters, test_letters = torch.load(load_path)
+            if self.which == 'train':
+                self.letters = train_letters
+            elif self.which == 'test':
+                self.letters = test_letters
 
-    def __init__(self, DATA_PATH=None, DICT_PATH=None):
-        if DATA_PATH is None and DICT_PATH is not None:
-            self.letters = torch.load(DICT_PATH)
-        else:
-            dataset = torch.load(DATA_PATH)
-            self.x = dataset[0]
-            self.y = dataset[1]
-            self.z = dataset[2]
-            self.len = len(self.y)
+    def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, train_test_save_path='train_test_emb_data.pt'):
+        """
+        Saves the training set and test set of embeddings in an object after they are sorted into dictionaries for easy sampling.
+        Pass the path to this object to the EmbeddingSampler constructor.
+        Args:
+            emb_data_path: path to the object that contains the train/test data sets
+            save_path: path where the object will be saved as a .pt file """
 
-            # Store Dictionary of letters
-            letters = {}
-            for i in range(self.len):
-                k = self.y[i].item()
-                # Stores the embedding(x), label(y), and outputd(z)
-                if k in letters:
-                    letters[k].append((self.x[i], self.y[i], self.z[i]))
-                else:
-                    letters[k] = [(self.x[i], self.y[i], self.z[i])]
+        train_dataset = torch.load(train_emb_data_path)
+        self.x = train_dataset[0]
+        self.y = train_dataset[1]
+        self.z = train_dataset[2]
+        self.len = len(self.y)
 
-            self.letters = letters
-            if DICT_PATH is None:
-                DICT_PATH = 'saved_emb_dict.pt'
-            torch.save(self.letters, DICT_PATH)
+        # Store Dictionary of letters
+        train_letters = {}
+        for i in range(self.len):
+            k = self.y[i].item()
+            # Stores the embedding(x), label(y), and outputd(z)
+            if k in train_letters:
+                train_letters[k].append((self.x[i], self.y[i], self.z[i]))
+            else:
+                train_letters[k] = [(self.x[i], self.y[i], self.z[i])]
 
-    """ Returns a random embedding from our dictionary for the specified letter"""
+        test_dataset = torch.load(test_emb_data_path)
+        self.x = test_dataset[0]
+        self.y = test_dataset[1]
+        self.z = test_dataset[2]
+        self.len = len(self.y)
+
+        # Store Dictionary of letters
+        test_letters = {}
+        for i in range(self.len):
+            k = self.y[i].item()
+            # Stores the embedding(x), label(y), and outputd(z)
+            if k in test_letters:
+                test_letters[k].append((self.x[i], self.y[i], self.z[i]))
+            else:
+                test_letters[k] = [(self.x[i], self.y[i], self.z[i])]
+
+        torch.save((train_letters, test_letters), train_test_save_path)
+        if self.which == 'train':
+            self.letters = train_letters
+        elif self.which == 'test':
+            self.letters = test_letters
+
+
+    # def __init__(self, DATA_PATH=None, DICT_PATH=None, SAVE_PATH = None, which='train'):
+    #     if DATA_PATH is None and DICT_PATH is not None:
+    #         if which == 'train':
+    #             self.letters = torch.load(DICT_PATH)
+    #         elif which == 'test':
+    #             self.letters = torch.load(DICT_PATH)
+    #     else:
+    #         dataset = torch.load(DATA_PATH)
+    #         self.x = dataset[0]
+    #         self.y = dataset[1]
+    #         self.z = dataset[2]
+    #         self.len = len(self.y)
+    #
+    #         # Store Dictionary of letters
+    #         letters = {}
+    #         for i in range(self.len):
+    #             k = self.y[i].item()
+    #             # Stores the embedding(x), label(y), and outputd(z)
+    #             if k in letters:
+    #                 letters[k].append((self.x[i], self.y[i], self.z[i]))
+    #             else:
+    #                 letters[k] = [(self.x[i], self.y[i], self.z[i])]
+    #
+    #         self.letters = letters
+    #         if SAVE_PATH is None:
+    #             SAVE_PATH = 'saved_ ' + which + '_emb_dict.pt'
+    #         torch.save(self.letters, SAVE_PATH)
+
 
     def sample(self, char):
+        """ Returns a random embedding from our dictionary for the specified letter"""
         # if char.isupper():
         #     char = char.lower()
         emb_idx = random.randrange(0, len(self.letters[char]) - 1)
@@ -305,10 +399,10 @@ class EmnistSampler:
                 letters[char].append(x[0])
         self.letters = letters
         # Save dictionary of lists of char images
-        # if which == 'train':
-        #     torch.save(self.letters, 'sorted_train_emnist.pt')
-        # else:
-        #     torch.save(self.letters, 'sorted_test_emnist.pt')
+        if which == 'train':
+            torch.save(self.letters, 'train_sorted_emnist.pt')
+        else:
+            torch.save(self.letters, 'test_sorted_emnist.pt')
         return
 
     def sample(self, char_idx):
@@ -404,6 +498,29 @@ def collate_fn(data):
 
         return embs, labels, outputs, lengths
 
+# EXAMPLE CREATING data object to load in SentenceDataset
+def create_datasets():
+    # Creating Emnist Sampler (Dictionary) from random emnist images
+    train_emnist = EmnistSampler(which='train', PATH=None)
+    test_emnist = EmnistSampler(which='test', PATH=None)
+
+    # Creating Embeddings Sampler (Dictionary) from precalculated embeddings
+    # Calculated Embeddings in main_both.py in calc_embeddings()
+    obj = EmbeddingSampler(which='train', load_path=None)
+    obj.createEmbeddingSampler()
+
+    obj = SentenceDataset()
+    obj.createSentenceDataset(sen_list_path='text_generation/sent_list.pkl',
+                              emnist_sampler_path_train='sorted_train_emnist.pt',
+                              emnist_sampler_path_test=None,
+                              embedding_sampler_path_train='emb_dataset_train.pt',
+                              embedding_sampler_path_test=None,
+                              save_path='train_test_sentenceDataset.pt')
+
+
+
+
+# EXAMPLE
 def sen_embeddings():
     train_dataset = SentenceDataset(PATH='sen_emb_data.pt', which='Embeddings')
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
@@ -418,6 +535,7 @@ def sen_embeddings():
         if i_batch == 5:
             exit()
 
+# EXAMPLE
 def sen_images():
     train_dataset = SentenceDataset(PATH='sen_img_data.pt', which='Images')
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
