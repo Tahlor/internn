@@ -8,14 +8,12 @@ import torchvision
 import math
 import torch.nn.functional as F
 import numpy as np
-from data import emb_loader
 import sys
 
-from data.emb_loader import VggEmbeddingsDataset
-
 sys.path.append(os.path.abspath("./data"))
-import data.sen_loader
-#from data.sen_loader import collate_fn, SentencesDataset
+#import data.sen_loader
+from data.sen_loader import collate_fn, save_dataset, SentenceDataset
+
 from models.VGG import *
 import argparse
 from data import loaders
@@ -30,6 +28,7 @@ def parse_args():
     return opts
 
 device = 'cuda'
+
 
 # For updating learning rate
 def update_lr(optimizer, lr):
@@ -88,13 +87,9 @@ def calc_embeddings():
     num_epochs = 200
     learning_rate = .007
     train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000)
-
     model1 = VGG_embedding().to(device)
-
-    # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer1 = torch.optim.Adam(model1.parameters(), lr=learning_rate)
-
     loadVGG(model1)
 
     # Test the model
@@ -137,16 +132,11 @@ def calc_embeddings():
                 labs = torch.cat((labs, y[i]), 0)
                 preds = torch.cat((preds, z[i]), )
 
-    # Initialize embeddings dataset
-    embedd1 = VggEmbeddingsDataset('./emb_dataset.pt')
-    # Save new calculated embeddings
-    embedd1.save_dataset(data, labs, preds, 'emb_dataset_train.pt')
+    # Save new calculated embeddings one hot encoded
+    # save_dataset(data, labs, preds, 'data/train_emb_dataset.pt')
+    torch.save((data, labs, preds), 'data/train_emb_dataset.pt')
 
     # Calculate Testset embeddings
-    model1 = VGG_embedding().to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer1 = torch.optim.Adam(model1.parameters(), lr=learning_rate)
-    loadVGG(model1)
     model1.eval()
     data = None
     labs = None
@@ -185,11 +175,11 @@ def calc_embeddings():
                 labs = torch.cat((labs, y[i]), 0)
                 preds = torch.cat((preds, z[i]), )
 
-    # Save new calculated embeddings
-    embedd1.save_dataset(data, labs, preds, 'test_emb_dataset.pt')
+    # Save new calculated embeddings one hot encoded
+    # save_dataset(data, labs, preds, 'data/test_emb_dataset.pt')
 
+    torch.save((data, labs, preds), 'data/test_emb_dataset.pt')
     exit()
-    # save
 
 
 def main(num_epochs = 200,

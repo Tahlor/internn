@@ -54,6 +54,10 @@ def load_sen_list(PATH):
     open_file.close()
     return loaded_list
 
+def save_dataset(x, y, z, PATH):
+    one_hot_labels = FN.one_hot(y)
+    torch.save((x, one_hot_labels, z), PATH)
+
 
 class SentenceDataset(Dataset):
     """Dataset for sentences of 32 characters that can be return as either images or embeddings
@@ -80,8 +84,6 @@ class SentenceDataset(Dataset):
             self.sentence_data = sentence_data
             self.len = len(self.sentence_data)
         self.space = self.get_space()
-
-
         # if which == 'Images':
         #     if PATH is not None:
         #         loaded_data = torch.load(PATH)
@@ -101,7 +103,6 @@ class SentenceDataset(Dataset):
         #         self.emb_loaded = EmbeddingSampler('emb_dataset_train.pt')  # Loads emb's to sample from
         #         self.sentence_data = load_sen_list('text_generation/sent_list.pkl')  # Loads the sentences
         #         # torch.save((self.emb_loaded, self.sentence_data), 'sen_emb_data.pt') # Save for quicker loading (Optional)
-
 
     def __len__(self):
         return self.len
@@ -164,9 +165,10 @@ class SentenceDataset(Dataset):
             output_path: path to where the saved SentenceDataset object will be stored.
         Returns: No return value
         """
-        # sentence_data = load_sen_list('text_generation/sent_list.pkl')
-        # images_loaded = EmnistSampler('sorted_train_emnist.pt', 'train')
-        # emb_loaded = EmbeddingSampler('emb_dataset_train.pt', 'train')
+        ## sentence_data = load_sen_list('text_generation/sent_list.pkl')
+        ## images_loaded = EmnistSampler('sorted_train_emnist.pt', 'train')
+        ## emb_loaded = EmbeddingSampler('emb_dataset_train.pt', 'train')
+
         print("Loading sentences...")
         sentence_data = load_sen_list(sen_list_path)
         print("Loading train emnist images...")
@@ -260,8 +262,6 @@ class SentenceDataset(Dataset):
             return 0
         return ord(char) - 96
 
-
-
 class EmbeddingSampler:
     """ For Quick loading and sampling of the embeddings,
         DATA_PATH is the path to the embeddings tuple with [0] embeddings, [1] labels [2] output prob.
@@ -275,7 +275,7 @@ class EmbeddingSampler:
             elif self.which == 'test':
                 self.letters = test_letters
 
-    def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, train_test_save_path='train_test_emb_data.pt'):
+    def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, save_path='train_test_emb_data.pt'):
         """
         Saves the training set and test set of embeddings in an object after they are sorted into dictionaries for easy sampling.
         Pass the path to this object to the EmbeddingSampler constructor.
@@ -293,11 +293,12 @@ class EmbeddingSampler:
         train_letters = {}
         for i in range(self.len):
             k = self.y[i].item()
+            # k = torch.argmax(self.y[i], dim=0).item() # One hot encoded
             # Stores the embedding(x), label(y), and outputd(z)
             if k in train_letters:
-                train_letters[k].append((self.x[i], self.y[i], self.z[i]))
+                train_letters[k].append((self.x[i], k, self.z[i]))
             else:
-                train_letters[k] = [(self.x[i], self.y[i], self.z[i])]
+                train_letters[k] = [(self.x[i], k, self.z[i])]
 
         test_dataset = torch.load(test_emb_data_path)
         self.x = test_dataset[0]
@@ -309,13 +310,14 @@ class EmbeddingSampler:
         test_letters = {}
         for i in range(self.len):
             k = self.y[i].item()
+            # k = torch.argmax(self.y[i], dim=0).item() one hot encoded
             # Stores the embedding(x), label(y), and outputd(z)
             if k in test_letters:
-                test_letters[k].append((self.x[i], self.y[i], self.z[i]))
+                test_letters[k].append((self.x[i], k, self.z[i]))
             else:
-                test_letters[k] = [(self.x[i], self.y[i], self.z[i])]
+                test_letters[k] = [(self.x[i], k, self.z[i])]
 
-        torch.save((train_letters, test_letters), train_test_save_path)
+        torch.save((train_letters, test_letters), save_path)
         if self.which == 'train':
             self.letters = train_letters
         elif self.which == 'test':
@@ -358,9 +360,8 @@ class EmbeddingSampler:
         emb_idx = random.randrange(0, len(self.letters[char]) - 1)
         return self.letters[char][emb_idx]
 
-
 class EmnistSampler:
-    def __init__(self, PATH=None, which='train'):
+    def __init__(self, PATH=None, which='train', save_path=None):
         # Load sorted_emnist if PATH is given
         if PATH:
             self.letters = torch.load(PATH)
@@ -400,9 +401,9 @@ class EmnistSampler:
         self.letters = letters
         # Save dictionary of lists of char images
         if which == 'train':
-            torch.save(self.letters, 'train_sorted_emnist.pt')
+            torch.save(self.letters, save_path)
         else:
-            torch.save(self.letters, 'test_sorted_emnist.pt')
+            torch.save(self.letters, save_path)
         return
 
     def sample(self, char_idx):
@@ -499,25 +500,33 @@ def collate_fn(data):
         return embs, labels, outputs, lengths
 
 # EXAMPLE CREATING data object to load in SentenceDataset
-def create_datasets():
-    # Creating Emnist Sampler (Dictionary) from random emnist images
-    train_emnist = EmnistSampler(which='train', PATH=None)
-    test_emnist = EmnistSampler(which='test', PATH=None)
+def create_datasets(save_path):
+    ## Creating Emnist Sampler (Dictionary) from random emnist images
+    print("Loading test and train emnist images into dictionary for sampling...")
+    train_emnist = EmnistSampler(which='train', PATH=None, save_path='train_sorted_emnist.pt')
+    test_emnist = EmnistSampler(which='test', PATH=None, save_path='test_sorted_emnist.pt')
 
-    # Creating Embeddings Sampler (Dictionary) from precalculated embeddings
-    # Calculated Embeddings in main_both.py in calc_embeddings()
-    obj = EmbeddingSampler(which='train', load_path=None)
-    obj.createEmbeddingSampler()
+    ## Creating Embeddings Sampler (Dictionary) from precalculated embeddings
+    ## Calculated Embeddings in main_both.py in calc_embeddings()
+    print("Loading test and train embeddings into dictionary for sampling...")
+    # With load_path EmbeddingSampler will load both train and test and leave
+    train_emb = EmbeddingSampler(which='train', load_path=None) #'train_test_emb_dict.pt'
+    train_emb.createEmbeddingSampler(train_emb_data_path='train_emb_dataset.pt',
+                                     test_emb_data_path='test_emb_dataset.pt',
+                                     save_path='train_test_emb_dict.pt')
+    ## To get test
+    ## test_emb = EmbeddingSampler(which='test', load_path='train_test_emb_dict.pt')
 
+    ## Everything previous is essential to have the necessary files to load
+    print("Loading Sentence Dataset...")
     obj = SentenceDataset()
     obj.createSentenceDataset(sen_list_path='text_generation/sent_list.pkl',
-                              emnist_sampler_path_train='sorted_train_emnist.pt',
-                              emnist_sampler_path_test=None,
-                              embedding_sampler_path_train='emb_dataset_train.pt',
-                              embedding_sampler_path_test=None,
-                              save_path='train_test_sentenceDataset.pt')
-
-
+                              emnist_sampler_path_train='train_sorted_emnist.pt',
+                              emnist_sampler_path_test='test_sorted_emnist.pt',
+                              embedding_sampler_path_train='train_test_emb_dict.pt',
+                              embedding_sampler_path_test='train_test_emb_dict.pt',
+                              save_path=save_path)
+    print("Finished!")
 
 
 # EXAMPLE
@@ -550,10 +559,12 @@ def sen_images():
             exit()
 
 def example_sen_loader():
+    create_datasets('train_test_sentenceDataset.pt')
+    # sen_images()
     # sen_embeddings()
-    sen_images()
+
 
 
 
 # Run Example
-# example_sen_loader()
+example_sen_loader()
