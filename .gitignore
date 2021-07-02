@@ -197,3 +197,4 @@ lm/reformer/pretrained.bin
 ./data/text_generation/fonts/font_pack/AdobeHeitiStd-Regular.otf
 ./data/text_generation/raw_text_10000.txt
 ./lm/reformer/pretrained.bin
+*.bin
