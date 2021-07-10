@@ -1,0 +1,36 @@
+# LR schedule
+learning_rate: 1e-4          # LR
+scheduler_step: null         # Every X steps, multiply LR by gamma
+scheduler_gamma: .97         # LR decay rate
+
+## Loss options:
+  # Based on width of image, determine how many outputs there should be
+    # batches make predictions square, ONLY evaluate based on the expected GT desired_num_of_strokes
+  # DTW - have as many GTs as you want; bound alignments somehow?
+  # (Old option: resample the GTs after the prediction is known)
+  # (Future option: with attention, have the GTs to be just be sampled regularly)
+
+test_size: null
+train_size: null
+batch_size: 28
+
+## GTs
+# All options include:
+  # x pos, y pos
+  # sos - 'is start of stroke' (1's for yes, 0's for no)
+  # sos_interp - 'is start of stroke' interpolated
+  # sos_interp_dist - 'is start of stroke' interpolated
+  # stroke_number - 'is start of stroke' interpolated
+  # eos - 'is start of stroke' interpolated
+
+# interpolated_sos: interpolated # normal: use 1's for starts; interpolated: start is a "0" and increases from there based on distance of stroke
+gt_format: # if relative etc., specify that here; e.g., opts:rel
+  - x
+  - y
+  - stroke_number
+
+# NOT IMPLEMENTED
+gt_opts:
+  - null
+  - null
+  - null
