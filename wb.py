@@ -1,33 +1,18 @@
 import wandb
 from subprocess import Popen
 
-Popen("ssh -fNt -D 41080 tarch@login04.rc.byu.edu", shell=True)
+# RUN wand_ prep.sh to edit defaulted installed SOCKS
+# This might be to change the port to one that isn't managed by sudo
 
-def socks():
-    # Not working correctly
-    from subprocess import Popen
-    #Popen("ssh -fNt -D 1080 tarch@login04.rc.byu.edu", shell=True)
-    #Popen("ssh -fNt -D 1080 taylor@legentil", shell=True)
-    import socks
-    import socket
-    from urllib import request
-    from requests import utils
-    socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 1080)
-    socket.socket = socks.socksocket
+#kill_41080="ps -aux | grep "login04.rc.byu.edu" | awk "{print \$2}" | xargs kill -9"
 
-"""
-nano socket.py
-
-import socks
-socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 1080)
-socket = socks.socksocket
-socks()
+open_port_command="""
+if ! pgrep -f "login04.rc.byu.edu" > /dev/null ; then
+ssh -fNt -D 41080 tarch@login04.rc.byu.edu;
+fi;
 """
 
-# nano ../env/internn/lib/python3.8/socket.py
-# import socks
-# socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 41080)
-# socket = socks.socksocket
+Popen(open_port_command, shell=True)
 
 # 1. Start a new run
 wandb.init(project="TEST")
@@ -39,11 +24,3 @@ config.dropout = 0.01
 
 # wandb: Run `wandb offline` to turn off syncing.
 
-#127.0.0.1 api.wandb.ai
-#127.0.0.1 wandb.ai
-#127.0.0.1 www.api.wandb.ai
-
-from requests import Session
-
-import sys
-sys.exit()
