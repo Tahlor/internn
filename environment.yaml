@@ -1,3 +1,4 @@
+# conda env update -f environment.yaml
 name: transformers
 channels:
   - huggingface
@@ -56,6 +57,7 @@ dependencies:
   - xz=5.2.5=h7b6447c_0
   - zlib=1.2.11=h7b6447c_3
   - pip:
+    - wandb
     - sentencepiece==0.1.95
     - torch==1.7.1
     - typing-extensions==3.7.4.3

@@ -84,6 +84,11 @@ def test_model_load():
     exit()
 
 def calc_embeddings():
+    """
+
+    Returns:
+
+    """
     num_epochs = 200
     learning_rate = .007
     train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000)
@@ -150,14 +155,6 @@ def calc_embeddings():
         for images, labels in test_loader:
             images = images.to(device)
             labels = labels.to(device)
-            # # Calc embeddings for a space ' '
-
-            # images = np.full((1, 28, 28), fill_value=-0.4242, dtype=np.float32)
-            # images = torch.from_numpy(images)
-            # images = torch.unsqueeze(images, 0)
-            # labels = torch.tensor([0])
-            # labels = labels.to(device)
-            # images = images.to(device)
 
             embeddings = model1.get_embedding(images)
             pred = model1.classifier(embeddings)

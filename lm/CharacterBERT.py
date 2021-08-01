@@ -4,6 +4,9 @@ from transformers import AutoTokenizer, AutoModelWithLMHead, AutoModelForMaskedL
 import torch.nn as nn
 import torch
 
+from general_tools.utils import get_root
+ROOT = get_root("internn")
+
 # ReformerForMaskedLM
 class CharacterBERT(nn.Module):
     """ Pass a bunch of vectors into it

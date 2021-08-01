@@ -9,14 +9,12 @@ def saveEmbeddings(tensor, PATH):
     torch.save(tensor, PATH)
     return
 
-def saveVGG(model):
-    PATH = './saved_models/vgg.pt'
-    torch.save(model.state_dict(), PATH)
+def saveVGG(model, path='./saved_models/vgg.pt'):
+    torch.save(model.state_dict(), path)
     return
 
-def loadVGG(model):
-    PATH = './saved_models/vgg.pt'
-    model.load_state_dict(torch.load(PATH))
+def loadVGG(model, path='./saved_models/vgg.pt'):
+    model.load_state_dict(torch.load(path))
     model.eval() # Set dropout and batch layers to evaluation mode before running inference
 
 class VGG(nn.Module):
@@ -95,11 +93,8 @@ class VGG(nn.Module):
 
 class VGG_embedding(VGG):
 
-<<<<<<< HEAD
-    def __init__(self, num_classes=62, *args, **kwargs):
-=======
     def __init__(self, num_classes=27, *args, **kwargs):
->>>>>>> emb_loader
+
         super().__init__(*args, **kwargs)
 
         self.embedding = nn.Sequential(
@@ -123,7 +118,8 @@ class VGG_embedding(VGG):
         return self.embedding(x)
 
     def forward_embedding(self, x):
-        pass
+        x = self.classifier(x)
+        return F.log_softmax(x, dim=1)
 
     def forward(self, x):
         x = self.get_embedding(x)

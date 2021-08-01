@@ -2,6 +2,8 @@
 # CNN
 # LM
 import pdb
+import torch.nn.functional as FN
+from pathlib import Path
 import os
 import torch
 import torchvision
@@ -9,7 +11,11 @@ import math
 import torch.nn.functional as F
 import numpy as np
 import sys
+import wandb
+from general_tools.utils import get_root
+ROOT = get_root("internn")
 
+os.chdir("..")
 sys.path.append(os.path.abspath("./data"))
 #import data.sen_loader
 from data.sen_loader import collate_fn, save_dataset, SentenceDataset
@@ -19,12 +25,16 @@ import argparse
 from data import loaders
 os.environ['CUDA_VISIBLE_DEVICES'] = str(0)
 
+OUTPUT = ROOT / "data/embedding_datasets/embeddings_v2"
+
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', type=str, default="./configs/stroke_config/baseline.yaml", help='Path to the config file.')
     parser.add_argument('--testing', action="store_true", default=False, help='Run testing version')
     #parser.add_argument('--name', type=str, default="", help='Optional - special name for this run')
     opts = parser.parse_args()
+    wandb.init(project="TEST")
+
     return opts
 
 device = 'cuda'
@@ -83,101 +93,60 @@ def test_model_load():
 
     exit()
 
-def calc_embeddings():
+def calc_embeddings(save_folder=OUTPUT, embedding=True):
     """
-
+    Save the embeddings out
+        embedding (bool): True - save the embedding; False - save the softmax
     Returns:
 
     """
-    num_epochs = 200
-    learning_rate = .007
+    save_folder = Path(save_folder); save_folder.mkdir(exist_ok=True, parents=True)
     train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000)
     model1 = VGG_embedding().to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer1 = torch.optim.Adam(model1.parameters(), lr=learning_rate)
-    loadVGG(model1)
+    loadVGG(model1, path=OUTPUT / "vgg.pt")
 
-    # Test the model
-    model1.eval()
-    data = None
-    labs = None
-    preds = None
-    with torch.no_grad():  # turn off gradient calc
-        correct1 = 0
-        total1 = 0
-        x = list()
-        y = list()
-        z = list()
-        for images, labels in train_loader:
-            images = images.to(device)
-            labels = labels.to(device)
-            # # Calc embeddings for a space ' '
+    for l in "train","test":
+        loader = train_loader if l == "train" else test_loader
+        # Test the model
+        model1.eval()
+        embeddings_list = None
+        labels_list = None
+        one_hot_pred_list = None
 
-            # images = np.full((1, 28, 28), fill_value=-0.4242, dtype=np.float32)
-            # images = torch.from_numpy(images)
-            # images = torch.unsqueeze(images, 0)
-            # labels = torch.tensor([0])
-            # labels = labels.to(device)
-            # images = images.to(device)
+        with torch.no_grad():  # turn off gradient calc
+            first = True
+            for images, labels in loader:
+                images = images.to(device)
+                labels = labels.to(device)
 
-            embeddings = model1.get_embedding(images)
-            pred = model1.classifier(embeddings)
-            x.append(embeddings)
-            y.append(labels)
-            z.append(pred)
+                embeddings = model1.get_embedding(images)
+                pred = model1.forward_embedding(embeddings) # this will output the softmax
 
+                if first:
+                    embeddings_list = embeddings
+                    labels_list = labels
+                    one_hot_pred_list = pred
+                    first = False
+                else:
+                    embeddings_list = torch.cat((embeddings_list, embeddings), 0)  # torch.Size([100, 512])
+                    labels_list = torch.cat((labels_list, labels), 0)  # torch.Size([100])
+                    one_hot_pred_list = torch.cat((one_hot_pred_list, pred), ) # torch.Size([100, 27])
 
-        for i in range(len(x)):
-            if i == 0:
-                data = x[i]
-                labs = y[i]
-                preds = z[i]
-            else:
-                data = torch.cat((data, x[i]), 0)
-                labs = torch.cat((labs, y[i]), 0)
-                preds = torch.cat((preds, z[i]), )
+            # Calculate space
+            space_image = (torch.zeros(*images.shape) + torch.min(images).tolist()).to(device)[0:1]
+            label = torch.zeros([1]).to(device)
+            label[0] = 0
+            embd = model1.get_embedding(space_image)
+            pred = model1.forward_embedding(embd)
 
-    # Save new calculated embeddings one hot encoded
-    # save_dataset(data, labs, preds, 'data/train_emb_dataset.pt')
-    torch.save((data, labs, preds), 'data/train_emb_dataset.pt')
+            embeddings_list = torch.cat((embeddings_list, embd), 0)
+            labels_list = torch.cat((labels_list, label), 0)
+            #pred = torch.zeros(one_hot_pred_list.shape[1]).to(device); pred[0] = 1
+            #pred = FN.one_hot(0, num_classes=one_hot_pred_list.shape[1]) # NO YOU NEED TO GET A PREDICTION THAT GOES TO THE SPACE YOU IDIOT
+            one_hot_pred_list = torch.cat((one_hot_pred_list, pred), 0)
 
-    # Calculate Testset embeddings
-    model1.eval()
-    data = None
-    labs = None
-    preds = None
-    with torch.no_grad():
-        correct1 = 0
-        total1 = 0
-        x = list()
-        y = list()
-        z = list()
-        for images, labels in test_loader:
-            images = images.to(device)
-            labels = labels.to(device)
-
-            embeddings = model1.get_embedding(images)
-            pred = model1.classifier(embeddings)
-            x.append(embeddings)
-            y.append(labels)
-            z.append(pred)
-
-        for i in range(len(x)):
-            if i == 0:
-                data = x[i]
-                labs = y[i]
-                preds = z[i]
-            else:
-                data = torch.cat((data, x[i]), 0)
-                labs = torch.cat((labs, y[i]), 0)
-                preds = torch.cat((preds, z[i]), )
-
-    # Save new calculated embeddings one hot encoded
-    # save_dataset(data, labs, preds, 'data/test_emb_dataset.pt')
-
-    torch.save((data, labs, preds), 'data/test_emb_dataset.pt')
-    exit()
-
+        # Save new calculated embeddings one hot encoded
+        torch.save((embeddings_list, labels_list, one_hot_pred_list), save_folder / f'{l}_emb_dataset.pt')
 
 def main(num_epochs = 200,
          learning_rate = 0.005,
@@ -185,9 +154,6 @@ def main(num_epochs = 200,
          log_interval = 500,
          *args,
          **kwargs):
-
-    calc_embeddings()
-    #test_model_load()
 
     # Loads random characters
     train_loader, test_loader = loaders.loader(batch_size_train = 100, batch_size_test = 1000)
@@ -209,20 +175,15 @@ def main(num_epochs = 200,
     best_accuracy1 = 0
     best_model = None
 
-    ### VISUAL PART
-
-    # Create model
-    # Sample letters
-    # Choose random images of letters
-    # Restrict language model to predict only A-z
-    # Pre train the language model
-    # [Calculate statistics on visual model only OR train it]
+    space_image = (torch.zeros(28,28) + -.4242)[None,None,:,:].to(device)
 
     for epoch in range(num_epochs):
+        model1.train()
         for i, (images, labels) in enumerate(train_loader): #Modify if lengths need to be returned from collate fn
             images = images.to(device)
+            images = torch.cat([images, space_image], axis=0)
+            labels = torch.cat([labels,torch.zeros(1).int()])
             labels = labels.to(device)
-
             # Forward
             outputs = model1(images)
             loss1 = criterion(outputs, labels)
@@ -263,12 +224,16 @@ def main(num_epochs = 200,
 
                 # Save best model - Comment out if you intend on using the supercomputer to only write the best model after training
                 best_model = model1
-                saveVGG(model1)
+                saveVGG(model1, path=OUTPUT / "vgg.pt")
 
-            model1.train()
+
     #saveVGG(best_model) # Uncomment for use on the fsl otherwise to get a saved model training needs to run to finish
+    calc_embeddings(OUTPUT)
+
+def resave():
+    calc_embeddings(OUTPUT)
 
 
 if __name__=='__main__':
-    main()
-
+    #main()
+    resave()

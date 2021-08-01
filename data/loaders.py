@@ -5,6 +5,8 @@ This code trains both NNs as two different models.
 This code randomly changes the learning rate to get a good result.
 @author: Dipu
 """
+from general_tools.utils import get_root
+ROOT = get_root("internn")
 
 
 import torch
@@ -33,7 +35,7 @@ def loader(batch_size_train = 100,
            **kwargs):
 
     train_loader = torch.utils.data.DataLoader(
-      torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
+      torchvision.datasets.EMNIST(ROOT / 'data/emnist', split='letters', train=True, download=True,
                                  transform=torchvision.transforms.Compose([
                                    torchvision.transforms.RandomPerspective(),
                                    torchvision.transforms.RandomRotation(10, fill=(0,)),
@@ -44,7 +46,7 @@ def loader(batch_size_train = 100,
       batch_size=batch_size_train, shuffle=True)
 
     test_loader = torch.utils.data.DataLoader(
-      torchvision.datasets.EMNIST('./data/emnist', split='letters', train=False, download=True,
+      torchvision.datasets.EMNIST(ROOT / 'data/emnist', split='letters', train=False, download=True,
                                  transform=torchvision.transforms.Compose([
                                    torchvision.transforms.ToTensor(),
                                    torchvision.transforms.Normalize(
@@ -71,5 +73,5 @@ def plot(example_data, example_targets):
       plt.title("Ground Truth: {}".format(example_targets[i]))
       plt.xticks([])
       plt.yticks([])
-    plt.savefig("./output/")
+    plt.savefig(ROOT / "output/")
     fig

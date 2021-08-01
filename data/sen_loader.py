@@ -1,3 +1,11 @@
+"""
+# space should just be a blank image
+# dataloader that does embeddings and images
+# use indices properly; check collate function
+
+
+"""
+
 import os
 import pdb
 import random
@@ -15,33 +23,82 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from data import loaders
 import pickle
+RESET=False
 
 # Ignore Warnings
 import warnings
+from pathlib import Path
+from general_tools.utils import get_root
 
+SCRIPT_DIR = (Path(__file__).resolve()).parent
+ROOT = get_root("internn")
+FOLDER = "data/embedding_datasets/embeddings_v2/"
 warnings.filterwarnings("ignore")
 
+import types
+def collect(func):
+    """ Decorater to return lists instead of generators
+    Args:
+        func:
+
+    Returns:
+
+    """
+    def wrapper(*args, **kwargs):
+        r = func(*args, **kwargs)
+
+        if isinstance(r, types.GeneratorType):
+            l = list(r)
+            if len(l) > 1:
+                if isinstance(l[0], str):
+                    l = "".join(l)
+                return l
+            elif l: # if list is non-empty
+                return l[0]
+        else:
+            return r
+    return wrapper
 
 def open_file(path):
     with open(path, "r") as f:
         return "".join(f.readlines())
 
-
+@collect
 def num_to_letter(num):
-    x = chr(num + 96)
-    if x == '`':
-        x = ' '
-    return x
+    if isinstance(num, str) and not num.isdigit():
+        warnings.warn(f"Expecting a number (not {num})")
+        return "?"
 
+    def n2l(n):
+        x = chr(n + 96)
+        if x == '`':
+            x = ' '
+        return x
+    try:
+        for i in num:
+            yield n2l(i)
+    except:
+        yield n2l(num)
 
+@collect
 def letter_to_num(char):
-    return ord(char) - 96
+    char = char.lower()
+    def l2n(char):
+        if char == ' ':
+            return 0
+        return ord(char) - 96
 
+    for i in char:
+        yield l2n(i)
 
-def plot(data, label):
+def plot(data, label=""):
     fig = plt.figure()
     torchimage = data
-    npimage = torchimage.permute(1, 2, 0)
+
+    # If channels is first
+    if torchimage.shape[0] <=3:
+        npimage = torchimage.permute(1, 2, 0)
+
     plt.imshow(npimage, cmap='gray', interpolation='none')
     plt.title("Ground Truth: {}".format(num_to_letter(label)))
     plt.show()
@@ -83,7 +140,7 @@ class SentenceDataset(Dataset):
                     self.emb_loaded = test_emb_loaded
             self.sentence_data = sentence_data
             self.len = len(self.sentence_data)
-        self.space = self.get_space()
+        #self.space = self.get_space()
         # if which == 'Images':
         #     if PATH is not None:
         #         loaded_data = torch.load(PATH)
@@ -109,7 +166,15 @@ class SentenceDataset(Dataset):
 
     def __getitem__(self, idx):
         """Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
-        Returns a tensor of an image for every character in the sentence. """
+        Returns a tensor of an image for every character in the sentence.
+
+        Returns:
+            images [batch, ch, x, y], 
+            torch.Size([31, 1, 28, 28]),
+            torch.Size([31, 27])
+            int
+
+        """
 
         sentence = self.sentence_data[idx]
 
@@ -119,11 +184,6 @@ class SentenceDataset(Dataset):
         data = None
         sen_len = len(sentence)
         for char in sentence:
-            if char == ' ' and self.which == 'Embeddings':
-                x.append(self.space[0])
-                y.append(self.space[1])
-                z.append(self.space[2])
-                continue
             char = str.lower(char)
             char_idx = self.letter_to_num(char)
             if self.which == 'Images':
@@ -133,14 +193,17 @@ class SentenceDataset(Dataset):
                 z.append(data[2])
 
             x.append(data[0])  # list of tuples of images [0], with labels [1]
-            y.append(data[1])
+            y.append(char_idx)
 
         # Convert into a tensor for each list of tensors and return them in a pair
         x = torch.stack(x)
         if self.which == 'Images': # Embed labels are tensors, Img labels are not.
             y = torch.tensor(y)
         else:
-            y = torch.stack(y)
+            if y and isinstance(y[0], int):
+                y = torch.tensor(y)
+            else:
+                y = torch.stack(y)
 
         y = FN.one_hot(y, num_classes=27)
         if self.which == 'Embeddings':  # Emb's pass the output distribution as well
@@ -179,88 +242,19 @@ class SentenceDataset(Dataset):
         train_emb_loaded = EmbeddingSampler(embedding_sampler_path_train, which='train')
         print("Loading test embeddings...")
         test_emb_loaded = EmbeddingSampler(embedding_sampler_path_test, which='test')
+        # SENTENCE_DATA, EmnistSampler, EmnistSampler, EmbeddingSampler, EmbeddingSampler
         torch.save((sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded), save_path)
-        print("SAVED AT " + save_path)
+        print("SAVED AT " + str(save_path))
         return
 
+    @staticmethod
+    def letter_to_num(char):
+        return letter_to_num(char)
 
-    def get_space(self):
-        x = torch.tensor([0.0000, 0.0000, 0.3574, 0.5313, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.4303, 0.0000, 0.2127, 0.0000, 0.0000,
-                          0.0000, 0.1401, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0214, 0.1339,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.3682, 0.0000, 0.0000, 0.0000, 0.0491,
-                          0.0000, 0.5024, 0.0000, 0.3816, 0.0000, 0.0000, 0.0000, 0.0000, 0.0056,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.1895, 0.0000, 0.0000,
-                          0.0000, 0.2752, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.1586, 0.0000, 0.0000, 0.0000, 0.1493, 0.0000, 0.0000, 0.0000,
-                          0.0797, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0501,
-                          0.3497, 0.0000, 0.0000, 0.0000, 0.0000, 0.2252, 0.0000, 0.1844, 0.0000,
-                          0.0000, 0.0000, 0.0741, 0.0153, 0.3897, 0.0000, 0.0000, 0.0000, 0.2780,
-                          0.0000, 0.0000, 0.0000, 0.2395, 0.0065, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.1791, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.4308,
-                          0.0000, 0.0000, 0.0364, 0.0000, 0.0000, 0.0000, 0.0000, 0.0576, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.2687, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0725, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.2193, 0.0000, 0.0000, 0.0000, 0.2794, 0.0000, 0.1826,
-                          0.0498, 0.0000, 0.1186, 0.0000, 0.1226, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.2473, 0.3170,
-                          0.0000, 0.0000, 0.0000, 0.0563, 0.3153, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.3826, 0.0000, 0.0000, 0.1507, 0.0000, 0.0000, 0.0000, 0.1992, 0.0000,
-                          0.2189, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0234, 0.2287, 0.0000, 0.0000, 0.1799, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0601, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.2003, 0.0000, 0.0000, 0.0000, 0.4333, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.2006, 0.0000, 0.0000, 0.0017, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0569, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.3776, 0.0000, 0.0000, 0.0446, 0.0000, 0.0998, 0.2578,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.2529, 0.0000, 0.0094, 0.0000, 0.0000, 0.0000, 0.0000, 0.1833,
-                          0.0000, 0.1734, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.1456, 0.2167, 0.2203, 0.0000, 0.0000, 0.0431, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.4517, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.6141, 0.0025, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0875, 0.1866, 0.0000, 0.0000, 0.0000, 0.4353, 0.0000, 0.0000,
-                          0.1974, 0.0000, 0.2797, 0.0000, 0.0000, 0.0000, 0.0000, 0.3020, 0.0529,
-                          0.0000, 0.3837, 0.1463, 0.2151, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.1675, 0.0000, 0.0000, 0.0000, 0.2391, 0.0000, 0.3017, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.4239, 0.0000, 0.2377, 0.0000, 0.0000, 0.0000, 0.3258,
-                          0.0000, 0.1397, 0.0000, 0.1069, 0.0000, 0.0000, 0.0000, 0.0000, 0.1659,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0632, 0.0000,
-                          0.3668, 0.0747, 0.1799, 0.0000, 0.3867, 0.0000, 0.0000, 0.0000, 0.3599,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0387, 0.0000, 0.0043, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.3010, 0.0000,
-                          0.3191, 0.0351, 0.0000, 0.0000, 0.5424, 0.0269, 0.0000, 0.0000, 0.0000,
-                          0.3978, 0.1781, 0.0000, 0.0000, 0.0284, 0.0000, 0.0921, 0.0000, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.1443, 0.0000, 0.0000, 0.1536, 0.0000,
-                          0.0332, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.2565, 0.0000,
-                          0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.3464, 0.0000,
-                          0.0000, 0.0951, 0.0000, 0.0771, 0.0000, 0.0000, 0.0000, 0.0000],
-                         device='cuda:0')
-        y = torch.tensor(0, device='cuda:0')
-        z = torch.tensor([-14.6589, -5.9251, -6.3186, -6.0825, -6.4697, -5.5496, -7.6354,
-                          -5.5846, -7.3932, 5.6296, -2.8101, -11.1615, 4.1306, -14.6459,
-                          -5.5566, -5.2781, -7.0683, -4.5653, -3.6809, -5.0012, -6.4760,
-                          -7.2010, -5.6119, -7.2746, -10.9740, -9.3349, -7.6041],
-                         device='cuda:0')
-        return x, y, z
+    @staticmethod
+    def num_to_letter(num):
+        return num_to_letter(num)
 
-    def num_to_letter(self, num):
-        x = chr(num + 96)
-        if x == '`':
-            x = ' '
-        return x
-
-    def letter_to_num(self, char):
-        if char == ' ':
-            return 0
-        return ord(char) - 96
 
 class EmbeddingSampler:
     """ For Quick loading and sampling of the embeddings,
@@ -275,7 +269,7 @@ class EmbeddingSampler:
             elif self.which == 'test':
                 self.letters = test_letters
 
-    def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, save_path='train_test_emb_data.pt'):
+    def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, save_path= 'train_test_emb_data.pt'):
         """
         Saves the training set and test set of embeddings in an object after they are sorted into dictionaries for easy sampling.
         Pass the path to this object to the EmbeddingSampler constructor.
@@ -283,41 +277,44 @@ class EmbeddingSampler:
             emb_data_path: path to the object that contains the train/test data sets
             save_path: path where the object will be saved as a .pt file """
 
-        train_dataset = torch.load(train_emb_data_path)
-        self.x = train_dataset[0]
-        self.y = train_dataset[1]
-        self.z = train_dataset[2]
-        self.len = len(self.y)
+        if not Path(save_path).exists() or RESET:
+            train_dataset = torch.load(train_emb_data_path)
+            embeddings = train_dataset[0]
+            labels = train_dataset[1]
+            preds_vector = train_dataset[2]
+            self.len = len(labels)
 
-        # Store Dictionary of letters
-        train_letters = {}
-        for i in range(self.len):
-            k = self.y[i].item()
-            # k = torch.argmax(self.y[i], dim=0).item() # One hot encoded
-            # Stores the embedding(x), label(y), and outputd(z)
-            if k in train_letters:
-                train_letters[k].append((self.x[i], k, self.z[i]))
-            else:
-                train_letters[k] = [(self.x[i], k, self.z[i])]
+            # Store Dictionary of letters {0:[(embedding,letter_idx,preds),
+            train_letters = {}
+            for i in range(self.len):
+                k = labels[i].item()
+                # Stores the embedding(x), label(y), and outputd(z)
+                if k in train_letters:
+                    train_letters[k].append((embeddings[i], k, preds_vector[i]))
+                else:
+                    train_letters[k] = [(embeddings[i], k, preds_vector[i])]
 
-        test_dataset = torch.load(test_emb_data_path)
-        self.x = test_dataset[0]
-        self.y = test_dataset[1]
-        self.z = test_dataset[2]
-        self.len = len(self.y)
+            test_dataset = torch.load(test_emb_data_path)
+            embeddings = test_dataset[0]
+            labels = test_dataset[1]
+            preds_vector = test_dataset[2]
+            self.len = len(labels)
 
-        # Store Dictionary of letters
-        test_letters = {}
-        for i in range(self.len):
-            k = self.y[i].item()
-            # k = torch.argmax(self.y[i], dim=0).item() one hot encoded
-            # Stores the embedding(x), label(y), and outputd(z)
-            if k in test_letters:
-                test_letters[k].append((self.x[i], k, self.z[i]))
-            else:
-                test_letters[k] = [(self.x[i], k, self.z[i])]
+            # Store Dictionary of letters
+            test_letters = {}
+            for i in range(self.len):
+                k = labels[i].item()
+                # k = torch.argmax(self.y[i], dim=0).item() one hot encoded
+                # Stores the embedding(x), label(y), and outputd(z)
+                if k in test_letters:
+                    test_letters[k].append((embeddings[i], k, preds_vector[i]))
+                else:
+                    test_letters[k] = [(embeddings[i], k, preds_vector[i])]
 
-        torch.save((train_letters, test_letters), save_path)
+            torch.save((train_letters, test_letters), save_path)
+        else:
+            train_letters, test_letters = torch.load(save_path)
+
         if self.which == 'train':
             self.letters = train_letters
         elif self.which == 'test':
@@ -357,7 +354,7 @@ class EmbeddingSampler:
         """ Returns a random embedding from our dictionary for the specified letter"""
         # if char.isupper():
         #     char = char.lower()
-        emb_idx = random.randrange(0, len(self.letters[char]) - 1)
+        emb_idx = random.randrange(0, len(self.letters[char]))
         return self.letters[char][emb_idx]
 
 class EmnistSampler:
@@ -368,7 +365,7 @@ class EmnistSampler:
             return
         dataset = None
         if which == 'train':
-            dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=True, download=True,
+            dataset = torchvision.datasets.EMNIST(ROOT / 'data/emnist', split='letters', train=True, download=True,
                                                   transform=torchvision.transforms.Compose(
                                                       [  # Fix image orientation
                                                           lambda img: F.rotate(img, -90),
@@ -379,7 +376,7 @@ class EmnistSampler:
                                                           # (mean, std)
                                                       ]))  # , shuffle=True)
         elif which == 'test':
-            dataset = torchvision.datasets.EMNIST('./data/emnist', split='letters', train=False, download=True,
+            dataset = torchvision.datasets.EMNIST(ROOT / 'data/emnist', split='letters', train=False, download=True,
                                                   transform=torchvision.transforms.Compose(
                                                       [  # Fix image orientation
                                                           lambda img: F.rotate(img, -90),
@@ -398,6 +395,11 @@ class EmnistSampler:
             else:
                 letters[char] = list()
                 letters[char].append(x[0])
+
+        # Add a space to the image EMNIST dataset
+        mm = [(torch.zeros(x[0].shape) + torch.min(x[0]))]
+        letters[' '] = mm
+
         self.letters = letters
         # Save dictionary of lists of char images
         if which == 'train':
@@ -407,13 +409,14 @@ class EmnistSampler:
         return
 
     def sample(self, char_idx):
-        if char_idx == 0:
-            space_tensor = np.full((1, 28, 28), fill_value=-0.4242)
-            return torch.from_numpy(space_tensor), char_idx
+        # Space goes here
+        # if char_idx == 0:
+        #     space_tensor = np.full((1, 28, 28), fill_value=-0.4242)
+        #     return torch.from_numpy(space_tensor), char_idx
         char = num_to_letter(char_idx)
         if char.isupper():
             char = char.lower()
-        img_idx = random.randrange(0, len(self.letters[char]) - 1)
+        img_idx = random.randrange(0, len(self.letters[char]))
         return self.letters[char][img_idx], self.letter_to_num(char)
 
     def num_to_letter(self, num):
@@ -500,38 +503,47 @@ def collate_fn(data):
         return embs, labels, outputs, lengths
 
 # EXAMPLE CREATING data object to load in SentenceDataset
-def create_datasets(save_path):
+def create_datasets(save_folder,
+                    load_emb_train,
+                    load_emb_test,
+                    ):
+    save_folder = Path(save_folder)
+    save_folder.mkdir(exist_ok=True, parents=True)
     ## Creating Emnist Sampler (Dictionary) from random emnist images
     print("Loading test and train emnist images into dictionary for sampling...")
-    train_emnist = EmnistSampler(which='train', PATH=None, save_path='train_sorted_emnist.pt')
-    test_emnist = EmnistSampler(which='test', PATH=None, save_path='test_sorted_emnist.pt')
+
+    # Save EMNIST samplers if they don't exist already
+    train_path = save_folder / 'train_sorted_emnist.pt'
+    if not train_path.exists() or RESET:
+        train_emnist = EmnistSampler(which='train', PATH=None, save_path=train_path)
+        test_emnist = EmnistSampler(which='test', PATH=None, save_path=save_folder / 'test_sorted_emnist.pt')
 
     ## Creating Embeddings Sampler (Dictionary) from precalculated embeddings
     ## Calculated Embeddings in main_both.py in calc_embeddings()
     print("Loading test and train embeddings into dictionary for sampling...")
     # With load_path EmbeddingSampler will load both train and test and leave
     train_emb = EmbeddingSampler(which='train', load_path=None) #'train_test_emb_dict.pt'
-    train_emb.createEmbeddingSampler(train_emb_data_path='train_emb_dataset.pt',
-                                     test_emb_data_path='test_emb_dataset.pt',
-                                     save_path='train_test_emb_dict.pt')
+    train_emb.createEmbeddingSampler(train_emb_data_path=load_emb_train,
+                                     test_emb_data_path=load_emb_test,
+                                     save_path=save_folder / 'train_test_emb_dict.pt')
     ## To get test
     ## test_emb = EmbeddingSampler(which='test', load_path='train_test_emb_dict.pt')
 
     ## Everything previous is essential to have the necessary files to load
     print("Loading Sentence Dataset...")
     obj = SentenceDataset()
-    obj.createSentenceDataset(sen_list_path='text_generation/sent_list.pkl',
-                              emnist_sampler_path_train='train_sorted_emnist.pt',
-                              emnist_sampler_path_test='test_sorted_emnist.pt',
-                              embedding_sampler_path_train='train_test_emb_dict.pt',
-                              embedding_sampler_path_test='train_test_emb_dict.pt',
-                              save_path=save_path)
+    obj.createSentenceDataset(sen_list_path=ROOT / 'data/text_generation/sent_list.pkl',
+                              emnist_sampler_path_train= save_folder / 'train_sorted_emnist.pt',
+                              emnist_sampler_path_test=save_folder / 'test_sorted_emnist.pt',
+                              embedding_sampler_path_train= save_folder / 'train_test_emb_dict.pt',
+                              embedding_sampler_path_test=save_folder / 'train_test_emb_dict.pt',
+                              save_path= save_folder / "train_test_sentenceDataset.pt")
     print("Finished!")
 
 
 # EXAMPLE
 def sen_embeddings():
-    train_dataset = SentenceDataset(PATH='sen_emb_data.pt', which='Embeddings')
+    train_dataset = SentenceDataset(PATH=SCRIPT_DIR / 'sen_emb_data.pt', which='Embeddings')
     train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=2, collate_fn=collate_fn, shuffle=False)
 
     for i_batch, sample in enumerate(train_loader):
@@ -559,12 +571,32 @@ def sen_images():
             exit()
 
 def example_sen_loader():
-    create_datasets('train_test_sentenceDataset.pt')
+    create_datasets(ROOT / FOLDER,
+                    ROOT / (FOLDER + "train_emb_dataset.pt"),
+                    ROOT / (FOLDER + "test_emb_dataset.pt")
+                    )
     # sen_images()
     # sen_embeddings()
 
-
-
+def load_sen_loader():
+    sd = SentenceDataset(ROOT / (FOLDER + 'train_test_sentenceDataset.pt'))
+    return sd
 
 # Run Example
-example_sen_loader()
+if __name__ == '__main__':
+    #example_sen_loader()
+    #import importlib, sen_loader
+    #importlib.reload(sen_loader); from sen_loader import *
+    RESET=True
+    example_sen_loader()
+    sd = load_sen_loader()
+    m = next(iter(sd))
+
+"""
+import importlib, sen_loader
+sd = sen_loader.SentenceDataset('train_test_sentenceDataset.pt')
+importlib.reload(sen_loader); from sen_loader import *
+sd = load_sen_loader()
+m = next(iter(sd))
+num_to_letter(torch.argmax(m[-2], axis=1))
+"""

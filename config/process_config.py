@@ -1,6 +1,18 @@
+import time
+import itertools
 import yaml
+import shutil
 import json
 import os
+from pathlib import Path
+import sys
+from easydict import EasyDict as edict
+import logging
+
+sys.path.append("..")
+import internn_utils
+
+logger = logging.getLogger("root."+__name__)
 
 def find_config(config_name, config_root="./configs"):
     # Correct config paths
@@ -44,11 +56,11 @@ def incrementer(root, base, make_folder=True):
 
 def read_config(config):
     config = Path(config)
-    log_print(config)
+
     if config.suffix.lower() == ".json":
         return json.load(config.open(mode="r"))
     elif config.suffix.lower() == ".yaml":
-        return fix_scientific_notation(yaml.load(config.open(mode="r"), Loader=yaml.Loader))
+        return internn_utils.fix_scientific_notation(yaml.load(config.open(mode="r"), Loader=yaml.Loader))
     else:
         raise "Unknown Filetype {}".format(config)
 
@@ -59,7 +71,7 @@ def load_config(config_path, hwr=True,
                 create_logger=True):
     config_path = Path(config_path)
     project_path = Path(os.path.realpath(__file__)).parent.parent.absolute()
-    log_print("Project path", project_path)
+    logger.info("Project path", project_path)
     config_root = project_path / "configs"
 
     subpath = config_root / subpath if subpath else config_root
@@ -82,7 +94,8 @@ def load_config(config_path, hwr=True,
     config = edict(read_config(config_path))
     config["name"] = Path(config_path).stem  ## OVERRIDE NAME WITH THE NAME OF THE YAML FILE
     config["project_path"] = project_path
-    config.counter = Counter()
+
+    #config.counter = Counter()
 
     if results_dir_override:
         config.results_dir = results_dir_override
@@ -90,17 +103,8 @@ def load_config(config_path, hwr=True,
     if testing:
         config.TESTING = True
 
-    defaults = hwr_defaults if hwr else stroke_defaults
-    recursive_default(config, defaults)
-    # for k in defaults.keys():
-    #     if k not in config.keys():
-    #         config[k] = defaults[k]
-
     # Fix
     config = fix_dict(config)
-
-    # Main output folder
-    # If override specified
 
     if Path(config_path).stem=="RESUME":
         output_root = Path(config_path).parent
@@ -133,7 +137,7 @@ def load_config(config_path, hwr=True,
             output_root = os.path.join(config["output_folder"], experiment)
 
         except Exception as e: # Fail safe; just dump to "./output/CONFIG NAME"
-            log_print(f"Failed to find relative path of config file {config_root} {config_path}")
+            logger.warning(f"Failed to find relative path of config file {config_root} {config_path}")
             experiment = Path(config_path).stem
             output_root = os.path.join(config["output_folder"], experiment)
 
@@ -141,7 +145,7 @@ def load_config(config_path, hwr=True,
 
     # Use config folder to determine output folder
     config["experiment"] = str(experiment)
-    log_print(f"Experiment: {experiment}, Results Directory: {output_root}")
+    logger.info(f"Experiment: {experiment}, Results Directory: {output_root}")
 
     hyper_parameter_str='{}'.format(
          config["name"],
@@ -183,42 +187,26 @@ def load_config(config_path, hwr=True,
             os.remove(old_link)
         if os.path.exists(link):
             os.rename(link, old_link)
-        symlink(config['results_dir'], link)
+        #symlink(config['results_dir'], link)
     except Exception as e:
-        log_print("Problem with RECENT link stuff: {}".format(e))
+        logger.warning("Problem with RECENT link stuff: {}".format(e))
 
     # Copy config to output folder
     #parent, child = os.path.split(config)
     try:
         shutil.copy(config_path, config['results_dir'])
     except Exception as e:
-        log_print(f"Could not copy config file: {e}")
+        logger.info(f"Could not copy config file: {e}")
 
     for root in ["training_root", "testing_root"]:
         if root in config and config[root].find("data")==0:
             config[root] = Path(config.project_path) / config.training_root
 
-    if hwr:
-        config = make_config_consistent_hwr(config)
-    else:
-        config = make_config_consistent_stroke(config)
-
-    if create_logger:
-        logger = hwr_logger.setup_logging(folder=config["log_dir"], level=config["logging"].upper())
-        log_print(f"Effective logging level: {logger.getEffectiveLevel()}")
-    else:
-        logger = None
-
-    log_print("Using config file", config_path)
-    #log_print(json.dumps(config, indent=2))
-
+    logger.info(f"Using config file: {config_path}")
     config["logger"] = logger
-
     config["stats"] = {}
-    config = computer_defaults(config)
 
     if not config.gpu_if_available:
         os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
-    #make_lower(config)
     return config
