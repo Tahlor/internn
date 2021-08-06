@@ -24,7 +24,7 @@ import copy
 import numpy as np
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 import os
-from sen_loader import *
+from sen_loader2 import *
 from transformers import BertPreTrainedModel
 from transformers.models.bert.modeling_bert import *
 import sys
@@ -58,10 +58,10 @@ def get_text(tnsr):
     return text
 
 sample = next(iter(train_dataset))
-print("Batch Data Shape = ", sample[0].squeeze(0).shape)
-print("Num Batch Labels = ", sample[1].squeeze(0).shape)
-print("Output shape: ", sample[2].shape)
-print("Sen Lengths: ", sample[3])
+print("Batch Data Shape = ", sample[0].squeeze(0).shape) # torch.Size([31, 512]) sentence_len, embedding dim
+print("Num Batch Labels = ", sample[1].squeeze(0).shape) # torch.Size([31, 27]) sentence_len, vocab_size
+print("Output shape: ", sample[2].shape) # torch.Size([31, 27]) - distribution???
+print("Sen Lengths: ", sample[3]) #
 
 print(get_text(sample[1]))
 
@@ -98,11 +98,11 @@ model = BertModelCustom(BertConfig(vocab_size=vocab_size + 2)).to(device)
 objective = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-1)
 
-if PATH:
-    latest = get_latest_file(PATH)
-    print(f"Loading {latest}")
-    model, optimizer, starting_epoch, loss = load_model(latest, model, optimizer)
-    starting_epoch = 1
+# if PATH:
+#     latest = get_latest_file(PATH)
+#     print(f"Loading {latest}")
+#     model, optimizer, starting_epoch, loss = load_model(latest, model, optimizer)
+#     starting_epoch = 1
 
 ## TEST MODEL
 input_ids, attention_mask, labels, mask_index = get_inputs("my name is sam")
@@ -123,7 +123,7 @@ for epoch in range(starting_epoch, epochs):
         x, y_truth = sample[0].to(device), sample[1].to(device)
         text = get_text(y_truth.squeeze(0))
         input_ids, attention_mask, y_truth, index = get_inputs(text)
-
+        # 1,31 * 3; int; indexes, 1/0s, label_masks (-100's mostly)
         input_ids = input_ids.to(device)
         attention_mask = attention_mask.to(device)
 

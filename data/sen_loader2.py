@@ -5,7 +5,7 @@
 
 
 """
-import copy
+
 import os
 import pdb
 import random
@@ -117,22 +117,15 @@ def save_dataset(x, y, z, PATH):
 
 
 class SentenceDataset(Dataset):
-
     """Dataset for sentences of 32 characters that can be return as either images or embeddings
         args:
         PATH: path to load the EmnistSampler previously saved
         which: 'Images' or 'Embeddings'
-
-        TODO: Add multicharacter masking to train faster
-        TODO: Add collate function
         """
 
-    def __init__(self, PATH=None, which='Images', train=True, train_mode="full sequence"):
+    def __init__(self, PATH=None, which='Images', train=True):
         self.which = which
         self.train = train
-        self.train_mode = train_mode
-        assert train_mode in ["full sequence", "single character", "multicharacter"]
-        assert which in ["Images", "Embeddings"]
         if PATH != None:
             sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded = torch.load(PATH)
             if which == 'Images':
@@ -147,16 +140,36 @@ class SentenceDataset(Dataset):
                     self.emb_loaded = test_emb_loaded
             self.sentence_data = sentence_data
             self.len = len(self.sentence_data)
+        #self.space = self.get_space()
+        # if which == 'Images':
+        #     if PATH is not None:
+        #         loaded_data = torch.load(PATH)
+        #         self.images_loaded = loaded_data[0]
+        #         self.sentence_data = loaded_data[1]
+        #     else:
+        #         self.images_loaded = EmnistSampler('sorted_train_emnist.pt')
+        #         self.sentence_data = load_sen_list('text_generation/sent_list.pkl')
+        #         torch.save((self.images_loaded, self.sentence_data), 'sen_img_data.pt')
+        #
+        # elif which == 'Embeddings':
+        #     if PATH is not None:
+        #         loaded_data = torch.load(PATH)
+        #         self.emb_loaded = loaded_data[0]
+        #         self.sentence_data = loaded_data[1]
+        #     else:
+        #         self.emb_loaded = EmbeddingSampler('emb_dataset_train.pt')  # Loads emb's to sample from
+        #         self.sentence_data = load_sen_list('text_generation/sent_list.pkl')  # Loads the sentences
+        #         # torch.save((self.emb_loaded, self.sentence_data), 'sen_emb_data.pt') # Save for quicker loading (Optional)
 
     def __len__(self):
         return self.len
 
-    def __getitem__(self, idx, mask_idx=-1):
+    def __getitem__(self, idx):
         """Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
         Returns a tensor of an image for every character in the sentence.
 
         Returns:
-            images [batch, ch, x, y], 
+            images [batch, ch, x, y],
             torch.Size([31, 1, 28, 28]),
             torch.Size([31, 27])
             int
@@ -166,11 +179,10 @@ class SentenceDataset(Dataset):
         sentence = self.sentence_data[idx]
 
         x = list()
-        gt_idxs = list()
-        vgg_logit = list()
-        data, embedding, image = None, None, None
+        y = list()
+        z = list()
+        data = None
         sen_len = len(sentence)
-        vgg_text = ""
         for char in sentence:
             char = str.lower(char)
             char_idx = self.letter_to_num(char)
@@ -178,51 +190,22 @@ class SentenceDataset(Dataset):
                 data = self.images_loaded.sample(char_idx)
             elif self.which == 'Embeddings':
                 data = self.emb_loaded.sample(char_idx)
-                vgg_logit.append(data[2])
+                z.append(data[2])
 
             x.append(data[0])  # list of tuples of images [0], with labels [1]
-            gt_idxs.append(char_idx)
+            y.append(char_idx)
 
         # Convert into a tensor for each list of tensors and return them in a pair
         x = torch.stack(x)
-        if self.which == 'Images': # Embed labels are tensors, Img labels are not.
-            gt_idxs = torch.tensor(gt_idxs)
-            image = x
-        else:
-            if gt_idxs and isinstance(gt_idxs[0], int):
-                gt_idxs = torch.tensor(gt_idxs)
-            else:
-                gt_idxs = torch.stack(gt_idxs)
 
-        gt_one_hot = FN.one_hot(gt_idxs, num_classes=27)
-        # Provide attention and label masks
-        attention_mask = torch.ones([sen_len])
-        if self.train_mode != "full sequence":
-            mask_idx = np.random.randint(0, sen_len) if mask_idx < 0 else mask_idx
-            attention_mask[mask_idx] = 0
-            masked_gt = torch.zeros([sen_len]) - 100
-            masked_gt[mask_idx] = gt_idxs[mask_idx]  # everything else to not predict, -100
-        else:
-            masked_gt = gt_idxs
-        masked_gt = masked_gt.type(torch.LongTensor)
 
+        y = torch.tensor(y)
+
+        y = FN.one_hot(y, num_classes=27)
         if self.which == 'Embeddings':  # Emb's pass the output distribution as well
-            vgg_logit = torch.stack(vgg_logit)
-            vgg_text = get_text(vgg_logit)
-            x = torch.nn.functional.normalize(x, dim=-1)
-            embedding = x
-
-        return {"data":x,
-                "embedding":embedding,
-                "image": image,
-                "gt_one_hot":gt_one_hot,
-                "length":sen_len,
-                "attention_mask": attention_mask,
-                "masked_gt": masked_gt,
-                "text": sentence,
-                "vgg_logits": vgg_logit,
-                "vgg_text": vgg_text,
-                "gt_idxs": gt_idxs}
+            z = torch.stack(z)
+            return x, y, z, sen_len
+        return x, y, sen_len
 
     def createSentenceDataset(self, sen_list_path,
                               embedding_sampler_path_train,
@@ -333,6 +316,36 @@ class EmbeddingSampler:
         elif self.which == 'test':
             self.letters = test_letters
 
+
+    # def __init__(self, DATA_PATH=None, DICT_PATH=None, SAVE_PATH = None, which='train'):
+    #     if DATA_PATH is None and DICT_PATH is not None:
+    #         if which == 'train':
+    #             self.letters = torch.load(DICT_PATH)
+    #         elif which == 'test':
+    #             self.letters = torch.load(DICT_PATH)
+    #     else:
+    #         dataset = torch.load(DATA_PATH)
+    #         self.x = dataset[0]
+    #         self.y = dataset[1]
+    #         self.z = dataset[2]
+    #         self.len = len(self.y)
+    #
+    #         # Store Dictionary of letters
+    #         letters = {}
+    #         for i in range(self.len):
+    #             k = self.y[i].item()
+    #             # Stores the embedding(x), label(y), and outputd(z)
+    #             if k in letters:
+    #                 letters[k].append((self.x[i], self.y[i], self.z[i]))
+    #             else:
+    #                 letters[k] = [(self.x[i], self.y[i], self.z[i])]
+    #
+    #         self.letters = letters
+    #         if SAVE_PATH is None:
+    #             SAVE_PATH = 'saved_ ' + which + '_emb_dict.pt'
+    #         torch.save(self.letters, SAVE_PATH)
+
+
     def sample(self, char):
         """ Returns a random embedding from our dictionary for the specified letter"""
         # if char.isupper():
@@ -411,41 +424,11 @@ class EmnistSampler:
     def letter_to_num(self, char):
         return ord(char) - 96
 
-
-def collate_fn_embeddings(data):
-    """
-                          alphabet_size=27,
-                          sentence_length=32,
-                          embedding_dim=512
-    Args:
-        data (list): list of dicts of length (batch)
-
-    Returns:
-
-    """
-    keys = data[0].keys()
-    output_dict = {}
-    padding = {"masked_gt": -100,
-                "attention_mask": 0,
-                "data": 0,
-                "gt_idxs": 0}
-
-    for data_key in keys:
-        batch_data = [b[data_key] for b in data]
-        if data_key in padding.keys():
-            batch_data = torch.nn.utils.rnn.pad_sequence(batch_data, batch_first=True, padding_value=padding[data_key])
-        output_dict[data_key] = batch_data
-    return output_dict
-
-
-def collate_fn_images(data):
+def collate_fn(data):
     """
     Args:
         IF Embeddings ->
-            data[0] => data["data"] char_embedding
-            data[1] => data["gt_one_hot"] label
-            data[2] => data["length"]
-            data (dict): is a list (len is the batch size) of tuples with (char_embedding, label, length),
+            data: is a list (len is the batch size) of tuples with (char_embedding, label, length),
             emb: is a tensor of shape([?-32, 512])
             label: is a tensor of shape([?-31, 27]) (one hot encoded)
             length: num of chars in the sentence
@@ -458,30 +441,62 @@ def collate_fn_images(data):
     """
     max_len = 32
     num_outputs = 27
-    sen_len = data["data"][0].size(0)
+    sen_len = data[0][0].size(0)
     num_batches = len(data)
-    imgs, labels, lengths = zip(*data)
-    new_imgs = []
-    for batch_idx in range(num_batches):
-        j = imgs[batch_idx].size(0)
-        if j == max_len:
-            new_imgs.append(imgs[batch_idx])
-            continue
-        curr_sen_of_imgs = torch.cat((imgs[batch_idx], torch.full((max_len - j, 1, 28, 28), fill_value=-0.4242)))
-        new_imgs.append(curr_sen_of_imgs)
+    if len(data[0]) == 3:  # Images
+        imgs, labels, lengths = zip(*data)
+        new_imgs = []
+        for batch_idx in range(num_batches):
+            j = imgs[batch_idx].size(0)
+            if j == max_len:
+                new_imgs.append(imgs[batch_idx])
+                continue
+            curr_sen_of_imgs = torch.cat((imgs[batch_idx], torch.full((max_len - j, 1, 28, 28), fill_value=-0.4242)))
+            new_imgs.append(curr_sen_of_imgs)
 
-    assert(new_imgs[0].shape[0] == 32)
+        assert(new_imgs[0].shape[0] == 32)
 
-    new_labels = []
-    for batch_idx in range(num_batches):
-        j = imgs[batch_idx].size(0)
-        curr_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs)))
-        new_labels.append(curr_label)
+        new_labels = []
+        for batch_idx in range(num_batches):
+            j = imgs[batch_idx].size(0)
+            curr_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs)))
+            new_labels.append(curr_label)
 
-    assert(new_labels[0].shape[0] == 32)
+        assert(new_labels[0].shape[0] == 32)
 
-    return new_imgs, new_labels, lengths
+        return new_imgs, new_labels, lengths
 
+    else:
+        emb, labels, outputs, lengths = zip(*data)  # Unpacks the iterable data object into 3 parts
+        emb_len = 512
+
+        # Pad sentences
+        new_embs = []
+        for batch_idx in range(num_batches):  # Loop through each batch.
+            j = emb[batch_idx].size(0)  # num of labels
+            curr_emb = torch.cat((emb[batch_idx], torch.zeros(max_len - j, emb_len, device='cuda:0')))
+            new_embs.append(curr_emb)
+        embs = torch.stack(new_embs)
+
+        new_labels = []
+        # Pad each label vectors seperately
+        for batch_idx in range(num_batches):
+            j = labels[batch_idx].size(0)  # num of labels
+            padded_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')))
+            new_labels.append(padded_label)
+        # Stack label vectors
+        labels = torch.stack(new_labels)
+
+        new_outputs = []
+        # Pad each output vectors seperately
+        for batch_idx in range(num_batches):
+            j = outputs[batch_idx].size(0)  # num of labels
+            padded_output = torch.cat((outputs[batch_idx], torch.zeros(max_len - j, num_outputs, device='cuda:0')))
+            new_outputs.append(padded_output)
+        # Stack output vectors
+        outputs = torch.stack(new_outputs)
+
+        return embs, labels, outputs, lengths
 
 # EXAMPLE CREATING data object to load in SentenceDataset
 def create_datasets(save_folder,
@@ -559,60 +574,9 @@ def example_sen_loader():
     # sen_images()
     # sen_embeddings()
 
-def load_sen_dataset(*args, **kwargs):
-    sd = SentenceDataset(ROOT / (FOLDER + 'train_test_sentenceDataset.pt'), *args, **kwargs)
+def load_sen_loader():
+    sd = SentenceDataset(ROOT / (FOLDER + 'train_test_sentenceDataset.pt'))
     return sd
-
-def get_inputs(text,
-               corpus,
-               mask_id,
-               mask_index=None):
-    """ Train - with no mask
-              - with mask
-
-    Args:
-        text:
-        mask_index (int): None - no mask, -1 - random mask
-
-    Returns:
-
-    """
-
-    n = len(text)
-    ids = []
-    for char in text:
-        ids.append(corpus.index(char))
-    input_ids = torch.tensor(ids).unsqueeze(0)
-    attention_mask = torch.ones([1,n])
-
-    if not mask_index is None:
-        mask_index = np.random.randint(0, n) if mask_index < 0 else mask_index
-        attention_mask[0, mask_index] = 0
-
-    labels = copy.deepcopy(input_ids)
-
-    if not mask_index is None:
-        # input_ids[0][mask_index] = mask_id  # character to predict is set to the vocab size????
-        labels[input_ids != mask_id] = -100 # set everything else to not predict
-    labels = labels.type(torch.LongTensor)
-    return input_ids, attention_mask, labels, mask_index
-
-def get_text(one_hot_tensor):
-    """ Converts either one-hot tensor or index tensor to letters
-
-    Args:
-        tnsr:
-
-    Returns:
-
-    """
-    text = ''
-    for value in one_hot_tensor:
-        if value.dim() and len(value) > 1:  # accepts either one-hot tensor OR one digit tensor
-            value = torch.argmax(value)
-        c = num_to_letter(value.item())
-        text = text + c
-    return text
 
 # Run Example
 if __name__ == '__main__':
@@ -621,18 +585,14 @@ if __name__ == '__main__':
     #importlib.reload(sen_loader); from sen_loader import *
     RESET=True
     example_sen_loader()
-    sd = load_sen_dataset(which='Embeddings')
+    sd = load_sen_loader()
     m = next(iter(sd))
 
 """
-import importlib, sen_loader;importlib.reload(sen_loader); from sen_loader import *
+import importlib, sen_loader
 sd = sen_loader.SentenceDataset('train_test_sentenceDataset.pt')
+importlib.reload(sen_loader); from sen_loader import *
 sd = load_sen_loader()
 m = next(iter(sd))
-
-train_loader = torch.utils.data.DataLoader(sd, batch_size=2, shuffle=True, collate_fn=collate_fn_embeddings)
-n = next(iter(train_loader))
-n["data"].shape
-
 num_to_letter(torch.argmax(m[-2], axis=1))
 """

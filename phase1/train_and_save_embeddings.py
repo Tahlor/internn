@@ -18,14 +18,13 @@ ROOT = get_root("internn")
 os.chdir("..")
 sys.path.append(os.path.abspath("./data"))
 #import data.sen_loader
-from data.sen_loader import collate_fn, save_dataset, SentenceDataset
 
 from models.VGG import *
 import argparse
 from data import loaders
 os.environ['CUDA_VISIBLE_DEVICES'] = str(0)
 
-OUTPUT = ROOT / "data/embedding_datasets/embeddings_v2"
+OUTPUT = ROOT / "data/embedding_datasets/embeddings_v2_normalized"
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -120,15 +119,15 @@ def calc_embeddings(save_folder=OUTPUT, embedding=True):
                 labels = labels.to(device)
 
                 embeddings = model1.get_embedding(images)
-                pred = model1.forward_embedding(embeddings) # this will output the softmax
+                pred = model1.forward_embedding(embeddings).cpu() # this will output the softmax
 
                 if first:
-                    embeddings_list = embeddings
+                    embeddings_list = embeddings.cpu()
                     labels_list = labels
                     one_hot_pred_list = pred
                     first = False
                 else:
-                    embeddings_list = torch.cat((embeddings_list, embeddings), 0)  # torch.Size([100, 512])
+                    embeddings_list = torch.cat((embeddings_list, embeddings.cpu()), 0)  # torch.Size([100, 512])
                     labels_list = torch.cat((labels_list, labels), 0)  # torch.Size([100])
                     one_hot_pred_list = torch.cat((one_hot_pred_list, pred), ) # torch.Size([100, 27])
 
@@ -137,15 +136,18 @@ def calc_embeddings(save_folder=OUTPUT, embedding=True):
             label = torch.zeros([1]).to(device)
             label[0] = 0
             embd = model1.get_embedding(space_image)
-            pred = model1.forward_embedding(embd)
+            pred = model1.forward_embedding(embd).cpu()
 
-            embeddings_list = torch.cat((embeddings_list, embd), 0)
+            embeddings_list = torch.cat((embeddings_list, embd.cpu()), 0)
             labels_list = torch.cat((labels_list, label), 0)
             #pred = torch.zeros(one_hot_pred_list.shape[1]).to(device); pred[0] = 1
             #pred = FN.one_hot(0, num_classes=one_hot_pred_list.shape[1]) # NO YOU NEED TO GET A PREDICTION THAT GOES TO THE SPACE YOU IDIOT
             one_hot_pred_list = torch.cat((one_hot_pred_list, pred), 0)
 
         # Save new calculated embeddings one hot encoded
+        if "normalized" in str(OUTPUT):
+            for i in range(0,len(embeddings_list)):
+                embeddings_list[i] = torch.nn.functional.normalize(embeddings_list[i], dim=-1)
         torch.save((embeddings_list, labels_list, one_hot_pred_list), save_folder / f'{l}_emb_dataset.pt')
 
 def main(num_epochs = 200,

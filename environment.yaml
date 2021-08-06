@@ -59,6 +59,7 @@ dependencies:
   - pip:
     - wandb
     - sentencepiece==0.1.95
+    - editdistance
     - torch==1.7.1
     - typing-extensions==3.7.4.3
     - torchvision
