@@ -211,6 +211,7 @@ class SentenceDataset(Dataset):
             vgg_text = get_text(vgg_logit)
             x = torch.nn.functional.normalize(x, dim=-1)
             embedding = x
+            vgg_logit = torch.nn.functional.normalize(vgg_logit, dim=-1)
 
         return {"data":x,
                 "embedding":embedding,
@@ -428,7 +429,8 @@ def collate_fn_embeddings(data):
     padding = {"masked_gt": -100,
                 "attention_mask": 0,
                 "data": 0,
-                "gt_idxs": 0}
+                "gt_idxs": 0,
+                "vgg_logits": 0}
 
     for data_key in keys:
         batch_data = [b[data_key] for b in data]

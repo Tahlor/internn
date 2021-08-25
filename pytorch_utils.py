@@ -3,6 +3,7 @@ import torch
 from general_tools.utils import get_root
 
 def save_model(path, model, optimizer=None, epoch=None, loss=None, scheduler=None):
+    path.parent.mkdir(exist_ok=True, parents=True)
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
