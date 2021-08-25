@@ -68,5 +68,6 @@ dependencies:
     - editdistance
     - pandas
     - wandb
+    - datasets
 prefix: /home/taylor/anaconda3/envs/transformers
 

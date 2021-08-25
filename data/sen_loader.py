@@ -2,9 +2,8 @@
 # space should just be a blank image
 # dataloader that does embeddings and images
 # use indices properly; check collate function
-
-
 """
+import datasets
 import copy
 import os
 import pdb
@@ -248,6 +247,7 @@ class SentenceDataset(Dataset):
 
         print("Loading sentences...")
         sentence_data = load_sen_list(sen_list_path)
+        # train_ds, test_ds = datasets.load_dataset('bookcorpus', split=['train', 'test'])
         print("Loading train emnist images...")
         train_images_loaded = EmnistSampler(emnist_sampler_path_train, which='train')
         print("Loading test emnist images...")
@@ -492,6 +492,7 @@ def create_datasets(save_folder,
                     ):
     save_folder = Path(save_folder)
     save_folder.mkdir(exist_ok=True, parents=True)
+
     ## Creating Emnist Sampler (Dictionary) from random emnist images
     print("Loading test and train emnist images into dictionary for sampling...")
 
