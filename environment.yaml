@@ -64,5 +64,6 @@ dependencies:
     - typing-extensions==3.7.4.3
     - torchvision
     - matplotlib
+    - datasets
 prefix: /home/taylor/anaconda3/envs/transformers
 
