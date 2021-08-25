@@ -247,6 +247,7 @@ class SentenceDataset(Dataset):
         print("Loading sentences...")
         sentence_data = load_sen_list(sen_list_path)
         # train_ds, test_ds = datasets.load_dataset('bookcorpus', split=['train', 'test'])
+
         print("Loading train emnist images...")
         train_images_loaded = EmnistSampler(emnist_sampler_path_train, which='train')
         print("Loading test emnist images...")
