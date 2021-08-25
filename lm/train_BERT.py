@@ -38,15 +38,16 @@ import random
 from transformers import AdamW
 
 
-WANDB = True
+WANDB = False
 if WANDB:
     wandb.init(project="TrainBERT")
 
 ROOT = get_root("internn")
 print(ROOT)
-PATH = ROOT / "data/embedding_datasets/embeddings_v2.1"
+LOADER_PATH = ROOT / "data/embedding_datasets/embeddings_v2.2"
+MODEL_PATH = ROOT / "data/embedding_datasets/embeddings_v2.2/L2_norm"
 
-epochs = 500
+epochs = 300
 starting_epoch = 0
 lr = 1e-4
 losses = []
@@ -59,7 +60,7 @@ corpus = [char for char in text]
 mask_id = len(corpus) + 1
 vocab_size = mask_id + 2 # some special characters?
 batch_size = 192
-embedding_dim = 512
+embedding_dim = 27
 
 config = {
     "epochs" : epochs,
@@ -82,14 +83,14 @@ if WANDB:
     wandb.config = config
 
 EXPERIMENT_NAME = "BERT_embedding*.pt"
-#EXPERIMENT_NAME = "BERT_logit*.pt"
+EXPERIMENT_NAME = "BERT_logit*.pt"
 
-train_dataset = SentenceDataset(PATH=PATH / 'train_test_sentenceDataset.pt', which='Embeddings')
+train_dataset = SentenceDataset(PATH=LOADER_PATH / 'train_test_sentenceDataset.pt', which='Embeddings')
 train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True,
                                            collate_fn=collate_fn_embeddings,
                                            num_workers=12)
 
-test_dataset = SentenceDataset(PATH=PATH / 'train_test_sentenceDataset.pt', which='Embeddings', train=False)
+test_dataset = SentenceDataset(PATH=LOADER_PATH / 'train_test_sentenceDataset.pt', which='Embeddings', train=False)
 test_loader = torch.utils.data.DataLoader(train_dataset,
                                           batch_size=batch_size,
                                           shuffle=True,
@@ -106,15 +107,15 @@ print(get_text(sample["gt_one_hot"]))
 
 model = BertModelCustom(BertConfig(vocab_size=vocab_size + 2,
                                    hidden_size=embedding_dim,
-                                   num_attention_heads=8)).to(device)
+                                   num_attention_heads=9)).to(device)
 objective = nn.CrossEntropyLoss()
 #objective = nn.NLLLoss(ignore_index=0)
 
 optimizer = AdamW(model.parameters(), lr=lr)
-scheduler = ReduceLROnPlateau(optimizer, 'min', patience=40, factor=.5)
+scheduler = ReduceLROnPlateau(optimizer, 'min', patience=30, factor=.5)
 
-if PATH:
-    latest = get_latest_file(PATH, EXPERIMENT_NAME)
+if MODEL_PATH:
+    latest = get_latest_file(MODEL_PATH, EXPERIMENT_NAME)
     if latest:
         print(f"Loading {latest}")
         old_state = load_model(latest, model, optimizer, scheduler)
@@ -198,7 +199,7 @@ for epoch in range(starting_epoch, epochs):
                 config["lr"] = lr
 
     if epoch % 10 == 0:
-        save_model(incrementer(PATH, EXPERIMENT_NAME), model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
+        save_model(incrementer(MODEL_PATH, EXPERIMENT_NAME), model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
 
 import matplotlib.pyplot as plt
 plt.plot(losses)

@@ -64,6 +64,10 @@ dependencies:
     - typing-extensions==3.7.4.3
     - torchvision
     - matplotlib
+    - git+ssh://git@github.com/Tahlor/utils
+    - editdistance
+    - pandas
+    - wandb
     - datasets
 prefix: /home/taylor/anaconda3/envs/transformers
 
