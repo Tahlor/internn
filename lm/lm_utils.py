@@ -2,7 +2,10 @@ import numpy as np
 from general_tools.utils import get_root
 ROOT = get_root("internn")
 import sys
-sys.path.append(ROOT)
+sys.path.append(str(ROOT))
+sys.path.append(str(ROOT / "data"))
+
+print(sys.path)
 from internn_utils import *
 from pytorch_utils import *
 from sen_loader import get_text

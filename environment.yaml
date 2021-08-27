@@ -69,5 +69,6 @@ dependencies:
     - pandas
     - wandb
     - datasets
+    - easydict
 prefix: /home/taylor/anaconda3/envs/transformers
 
