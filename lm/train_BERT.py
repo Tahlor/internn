@@ -62,6 +62,12 @@ model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
 objective = nn.CrossEntropyLoss()
 #objective = nn.NLLLoss(ignore_index=0)
 
+parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"PARAMETERS: {parameters}")
+
+# 51258938
+#  2083333
+
 optimizer = AdamW(model.parameters(), lr=config.lr)
 scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.patience, factor=config.decay_factor)
 
@@ -93,12 +99,17 @@ train_dataset.train_mode = "full sequence"
 lr = optimizer.param_groups[0]['lr']
 print("INITIAL LR: ", lr)
 
+#if config.experiment.embedding_dim != :
+embedding = nn.Linear(config.vocab_size, config.experiment.embedding_dim).to(config.device) if config.experiment.embedding_dim else None
+
 for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):
     print("epoch", epoch)
     for sample in train_loader:
         # train_dataset.train_mode = "single character" if random.random() < .5 else "full sequence"
 
         x, y_truth, attention_mask = sample[config.experiment.loader_key].to(config.device), sample["masked_gt"].to(config.device), sample["attention_mask"].to(config.device)
+        if embedding:
+            x = embedding(x)
 
         attention_mask = attention_mask.to(config.device) # 1, sentence_length
         optimizer.zero_grad()
@@ -130,7 +141,8 @@ for epoch in range(config.starting_epoch if config.starting_epoch else 0, config
             if lr < config["lr"]:
                 print("New LR:", lr)
                 config["lr"] = lr
-
+        # if new_lr < 1.220703125e-08:
+        #     break
     if epoch % config.save_freq_epoch == 0:
         save_model(incrementer(MODEL_PATH, EXPERIMENT_NAME), model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
 

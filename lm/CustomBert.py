@@ -3,7 +3,13 @@ from transformers.models.bert.modeling_bert import *
 
 class BertModelCustom(BertPreTrainedModel):
 
-    def __init__(self, config, add_pooling_layer=True, input_dimension=None):
+    def __init__(self, config,
+                 add_pooling_layer=True,
+                 input_dimension=None):
+        """
+            embedding_dimension:
+
+        """
         super().__init__(config)
         self.config = config
 

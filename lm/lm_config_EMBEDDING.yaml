@@ -1,8 +1,3 @@
-## Run vgg_logits / vgg_embeddings
-    # L2, (softmax-logits only), default
-## FSL
-## WANDB
-## Language only
 
 # Paths
 folder_dependencies: "data/embedding_datasets/embeddings_v3"
