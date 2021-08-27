@@ -49,7 +49,7 @@ save_freq_epoch: 10
 ## LR schedule
 lr: 1e-4     # LR
 patience: 30            # Every X steps, multiply LR by gamma
-decay_factor: .97    # LR decay rate
+decay_factor: .5    # LR decay rate
 steps_per_lr_update: 10 # Number of batches before LR check
 
 ## Device
