@@ -93,7 +93,7 @@ print("Sen Lengths: ", sample["length"])
 
 print(get_text(sample["gt_one_hot"]))
 
-model = BertModelCustom(BertConfig(vocab_size=vocab_size + 2)).to(device)
+model = BertModelCustom(BertConfig(vocab_size=vocab_size)).to(device)
 objective = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=1e-1)
 

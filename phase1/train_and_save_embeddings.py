@@ -145,9 +145,9 @@ def calc_embeddings(save_folder=OUTPUT, embedding=True):
             one_hot_pred_list = torch.cat((one_hot_pred_list, pred), 0)
 
         # Save new calculated embeddings one hot encoded
-        if "normalized" in str(OUTPUT):
-            for i in range(0,len(embeddings_list)):
-                embeddings_list[i] = torch.nn.functional.normalize(embeddings_list[i], dim=-1)
+        # if "normalized" in str(OUTPUT):
+        #     for i in range(0,len(embeddings_list)):
+        #         embeddings_list[i] = torch.nn.functional.normalize(embeddings_list[i], dim=-1)
         torch.save((embeddings_list, labels_list, one_hot_pred_list), save_folder / f'{l}_emb_dataset.pt')
 
 def main(num_epochs = 200,

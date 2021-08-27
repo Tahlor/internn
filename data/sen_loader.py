@@ -3,6 +3,7 @@
 # dataloader that does embeddings and images
 # use indices properly; check collate function
 """
+import re
 import datasets
 import copy
 import os
@@ -31,7 +32,7 @@ from general_tools.utils import get_root
 
 SCRIPT_DIR = (Path(__file__).resolve()).parent
 ROOT = get_root("internn")
-FOLDER = "data/embedding_datasets/embeddings_v2/"
+FOLDER = "data/embedding_datasets/embeddings_v3/"
 warnings.filterwarnings("ignore")
 
 import types
@@ -115,43 +116,130 @@ def save_dataset(x, y, z, PATH):
     torch.save((x, one_hot_labels, z), PATH)
 
 
+def filter_with_punctuation():
+    lower_case = re.compile(r'[^a-z0-9 \.]+')
+    double_space = re.compile(r'\s\s+')
+    space_period = re.compile(r'\s+\.')
+    return lambda sentence: space_period.sub(".",
+                                            double_space.sub(" ",
+                                            lower_case.sub("", sentence)).strip())
+
+def filter_only_lowercase(include_digits=True):
+    if include_digits:
+        lower_case = re.compile(r'[^a-z0-9 ]+')
+    else:
+        lower_case = re.compile(r'[^a-z ]+')
+
+    double_space = re.compile(r'\s\s+')
+    return lambda sentence: double_space.sub(" ",lower_case.sub("", sentence)).strip()
+
+
+FILTERS = {"lowercase": lambda: filter_only_lowercase(include_digits=False),
+           "lowercase_with_digits": lambda: filter_only_lowercase(include_digits=True),
+           "filter_with_punctuation": filter_with_punctuation,
+           }
+
+NORMALIZE_FUNC = {
+    "L2": torch.nn.functional.normalize,
+    "softmax": torch.nn.functional.softmax,
+    "default": lambda x, *_: x
+}
+
 class SentenceDataset(Dataset):
 
     """Dataset for sentences of 32 characters that can be return as either images or embeddings
         args:
         PATH: path to load the EmnistSampler previously saved
         which: 'Images' or 'Embeddings'
+        train_mode:
+                full sequence - assume the entire sequence is being predicted
+                single character - mask / predict only one character
+                multicharacter - not implemented
 
         TODO: Add multicharacter masking to train faster
         TODO: Add collate function
         """
 
-    def __init__(self, PATH=None, which='Images', train=True, train_mode="full sequence"):
+    def __init__(self, PATH=None,
+                 which='Images',
+                 train=True,
+                 train_mode="full sequence",
+                 sentence_length=32,
+                 sentence_filter="lowercase",
+                 vocab_size=27,
+                 normalize="L2"):
+        """
+
+        Args:
+            PATH:
+            which:
+            train:
+            train_mode:
+            sentence_length:
+            sentence_filter:
+            vocab_size:
+            normalize (str): default, L2, softmax
+        """
         self.which = which
         self.train = train
         self.train_mode = train_mode
+        self.sentence_length = sentence_length
+        self.filter_sentence = FILTERS[sentence_filter]()
+        self.vocab_size = vocab_size
+        self.normalize_func = NORMALIZE_FUNC[normalize]
         assert train_mode in ["full sequence", "single character", "multicharacter"]
         assert which in ["Images", "Embeddings"]
         if PATH != None:
-            sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded = torch.load(PATH)
-            if which == 'Images':
-                if train:
-                    self.images_loaded = train_images_loaded
-                else:
-                    self.images_loaded = test_images_loaded
-            elif which == 'Embeddings':
-                if train:
-                    self.emb_loaded = train_emb_loaded
-                else:
-                    self.emb_loaded = test_emb_loaded
-            self.sentence_data = sentence_data
-            self.len = len(self.sentence_data)
+            self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
+            self.sentence_data_train, self.sentence_data_test = datasets.load_dataset('bookcorpus', split=['train[:85%]', 'train[85%:]'])
+            self.load_images()
+        if self.train:
+            self.set_train_mode()
+
+    def load_images(self, train=True):
+        if self.which == 'Images':
+            if train:
+                self.images_loaded = self.train_images_loaded
+            else:
+                self.images_loaded = self.test_images_loaded
+        elif self.which == 'Embeddings':
+            if train:
+                self.emb_loaded = self.train_emb_loaded
+            else:
+                self.emb_loaded = self.test_emb_loaded
 
     def __len__(self):
         return self.len
 
+    def get_sentence(self, sentence):
+        # Always begins and ends with a space
+        filtered_sentence = " " + self.filter_sentence(sentence["text"]) + " "
+
+        try:
+            start = random.randint(0, len(filtered_sentence) - self.sentence_length)
+            new_start = filtered_sentence[start:].find(" ")+start+1
+            fs = filtered_sentence[new_start:new_start+self.sentence_length]
+            new_end = fs.rfind(" ")
+            fs = fs[:new_end]
+        except Exception as e:
+            fs = filtered_sentence[:self.sentence_length]
+            new_end = fs.rfind(" ") if fs.rfind(" ") > 0 else None
+            fs = fs[:new_end].strip()
+
+        return fs
+
+    def set_train_mode(self):
+        self.sentence_data = self.sentence_data_train
+        self.load_images(train=True)
+        self.len = len(self.sentence_data)
+
+    def set_test_mode(self):
+        self.sentence_data = self.sentence_data_test
+        self.load_images(train=False)
+        self.len = len(self.sentence_data)
+
     def __getitem__(self, idx, mask_idx=-1):
-        """Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
+        """ Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
         Returns a tensor of an image for every character in the sentence.
 
         Returns:
@@ -161,8 +249,16 @@ class SentenceDataset(Dataset):
             int
 
         """
+        while True:
+            sentence = self.get_sentence(self.sentence_data[idx])
+            if len(sentence) >= 4:
+                break
+            else:
+                idx = random.randint(0,self.len)
 
-        sentence = self.sentence_data[idx]
+        # for i in range(0, 1000):
+        #     sentence = self.get_sentence(self.sentence_data_train[i])
+        #     print(sentence)
 
         x = list()
         gt_idxs = list()
@@ -184,6 +280,7 @@ class SentenceDataset(Dataset):
 
         # Convert into a tensor for each list of tensors and return them in a pair
         x = torch.stack(x)
+
         if self.which == 'Images': # Embed labels are tensors, Img labels are not.
             gt_idxs = torch.tensor(gt_idxs)
             image = x
@@ -193,14 +290,15 @@ class SentenceDataset(Dataset):
             else:
                 gt_idxs = torch.stack(gt_idxs)
 
-        gt_one_hot = FN.one_hot(gt_idxs, num_classes=27)
+        gt_one_hot = FN.one_hot(gt_idxs, num_classes=self.vocab_size)
+
         # Provide attention and label masks
         attention_mask = torch.ones([sen_len])
         if self.train_mode != "full sequence":
             mask_idx = np.random.randint(0, sen_len) if mask_idx < 0 else mask_idx
             attention_mask[mask_idx] = 0
             masked_gt = torch.zeros([sen_len]) - 100
-            masked_gt[mask_idx] = gt_idxs[mask_idx]  # everything else to not predict, -100
+            masked_gt[mask_idx] = gt_idxs[mask_idx]  # everything else to not predict is -100
         else:
             masked_gt = gt_idxs
         masked_gt = masked_gt.type(torch.LongTensor)
@@ -208,9 +306,9 @@ class SentenceDataset(Dataset):
         if self.which == 'Embeddings':  # Emb's pass the output distribution as well
             vgg_logit = torch.stack(vgg_logit)
             vgg_text = get_text(vgg_logit)
-            x = torch.nn.functional.normalize(x, dim=-1)
+            x = self.normalize_func(x, dim=-1)
             embedding = x
-            vgg_logit = torch.nn.functional.normalize(vgg_logit, dim=-1)
+            vgg_logit = self.normalize_func(vgg_logit, dim=-1)
 
         return {"data":x,
                 "embedding":embedding,
@@ -246,8 +344,9 @@ class SentenceDataset(Dataset):
         ## emb_loaded = EmbeddingSampler('emb_dataset_train.pt', 'train')
 
         print("Loading sentences...")
-        sentence_data = load_sen_list(sen_list_path)
-        # train_ds, test_ds = datasets.load_dataset('bookcorpus', split=['train', 'test'])
+
+        # sentence_data = load_sen_list(sen_list_path)
+        sentence_data = None
 
         print("Loading train emnist images...")
         train_images_loaded = EmnistSampler(emnist_sampler_path_train, which='train')
@@ -555,7 +654,7 @@ def sen_images():
         if i_batch == 5:
             exit()
 
-def example_sen_loader():
+def create_dataset_test():
     create_datasets(ROOT / FOLDER,
                     ROOT / (FOLDER + "train_emb_dataset.pt"),
                     ROOT / (FOLDER + "test_emb_dataset.pt")
@@ -574,9 +673,14 @@ def get_inputs(text,
     """ Train - with no mask
               - with mask
 
+        Masking Values:
+              -100 (labels) : will not be predicted
+              0 (input) : will not be considered in prediction
+
     Args:
         text:
-        mask_index (int): None - no mask, -1 - random mask
+        mask_id: the labels are just a list of indices, e.g. [1,12,38,...]; this is the mask's ID
+        mask_index (int): None - no mask, -1 - random mask, [0,n] - the index of the sequence to mask
 
     Returns:
 
@@ -591,7 +695,7 @@ def get_inputs(text,
 
     if not mask_index is None:
         mask_index = np.random.randint(0, n) if mask_index < 0 else mask_index
-        attention_mask[0, mask_index] = 0
+        attention_mask[0, mask_index] = 0 # mask the input to be predicted
 
     labels = copy.deepcopy(input_ids)
 
@@ -624,7 +728,10 @@ if __name__ == '__main__':
     #import importlib, sen_loader
     #importlib.reload(sen_loader); from sen_loader import *
     RESET=True
-    example_sen_loader()
+
+    # Create datasets
+    create_dataset_test()
+
     sd = load_sen_dataset(which='Embeddings')
     m = next(iter(sd))
 

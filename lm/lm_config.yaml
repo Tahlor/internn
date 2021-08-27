@@ -1,0 +1,59 @@
+## Run vgg_logits / vgg_embeddings
+    # L2, (softmax-logits only), default
+## FSL
+## WANDB
+
+# Paths
+folder_dependencies: "data/embedding_datasets/embeddings_v3"
+folder_outputs:  "data/embedding_datasets/embeddings_v3/TEST1"
+wandb: false
+
+# Training Settings
+## Experiment Definitions
+vocab_size: 27 # lowercase + space
+
+# Logits
+experiment_prefix: BERT_
+experiment_type: vgg_logits # vgg_logits, vgg_embeddings, language_only
+
+vgg_logits:
+    embedding_dim: 27
+    attention_heads: 9
+    norm: L2 #L2,softmax,default - take a norm of the logits
+    loader_key: vgg_logits
+    train_mode: full sequence
+        # full sequence - Provide entire input, predict the entire output
+        # input occlusion - Provide partial input, predict the entire output
+        # default - Mask some of the input, predict only the masked portions
+
+vgg_embeddings:
+    embedding_dim: 512
+    attention_heads: 8
+    norm: L2
+    loader_key: data
+    train_mode: full sequence
+
+# Need to get language only to work -- possibly use different framework
+language_only:
+    # Mask some of the input, predict only the masked portions
+    embedding_dim: 512
+    attention_heads: 8
+    loader_key: null
+
+## Generic Hyperparameters
+epochs: 300
+starting_epoch: null
+batch_size: 192
+save_freq_epoch: 10
+
+## LR schedule
+lr: 1e-4     # LR
+patience: 30            # Every X steps, multiply LR by gamma
+decay_factor: .97    # LR decay rate
+steps_per_lr_update: 10 # Number of batches before LR check
+
+## Device
+device: gpu
+
+## Data
+corpus: books

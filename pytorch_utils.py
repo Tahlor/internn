@@ -72,7 +72,7 @@ def get_latest_file(folder, filename="*.pt"):
     Returns:
 
     """
-    list_of_paths = list(folder.glob(filename))
+    list_of_paths = list(Path(folder).glob(filename))
     if list_of_paths:
         return max(list_of_paths, key=lambda p: p.stat().st_ctime)
     else:

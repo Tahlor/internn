@@ -14,7 +14,7 @@ class BertModelCustom(BertPreTrainedModel):
 
         self.init_weights()
 
-        self.lin2 = nn.Linear(config.hidden_size, config.vocab_size - 2)
+        self.lin2 = nn.Linear(config.hidden_size, config.vocab_size)
         self.cls = BertOnlyMLMHead(config)
 
     def get_input_embeddings(self):

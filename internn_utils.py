@@ -14,24 +14,21 @@ import yaml
 import json
 import os
 import signal
-from Bio import pairwise2
 import numpy as np
 import warnings
 import glob
 from pathlib import Path
 from easydict import EasyDict as edict
-from hwr_utils import visualize, string_utils, error_rates
-from hwr_utils.stattrack import Stat, AutoStat, Counter
 import traceback
-from hwr_utils import hwr_logger
 from subprocess import Popen, DEVNULL, STDOUT, check_output
-from hwr_utils.base_utils import *
 from torch.optim import lr_scheduler
-from hwr_utils.stroke_recovery import relativefy_numpy
+import logging
+
+logger = logging.getLogger("root."+__name__)
 
 def read_config(config):
     config = Path(config)
-    log_print(config)
+    logprint(config)
     if config.suffix.lower() == ".json":
         return json.load(config.open(mode="r"))
     elif config.suffix.lower() == ".yaml":
@@ -39,16 +36,9 @@ def read_config(config):
     else:
         raise "Unknown Filetype {}".format(config)
 
-
-_print = print
-
-
-# def print(*args,**kwargs):
-#     log_print(*args, **kwargs, print_statements=False)
-
-def log_print(*args, print_statements=True):
+def logprint(*args, print_statements=True):
     if print_statements:
-        _print(" ".join([str(a) for a in args]))
+        print(" ".join([str(a) for a in args]))
     else:
         hwr_logger.logger.info(" ".join([str(a) for a in args]))
 
@@ -227,7 +217,7 @@ def load_config(config_path, hwr=True,
                 create_logger=True):
     config_path = Path(config_path)
     project_path = Path(os.path.realpath(__file__)).parent.parent.absolute()
-    log_print("Project path", project_path)
+    logprint("Project path", project_path)
     config_root = project_path / "configs"
 
     subpath = config_root / subpath if subpath else config_root
@@ -301,7 +291,7 @@ def load_config(config_path, hwr=True,
             output_root = os.path.join(config["output_folder"], experiment)
 
         except Exception as e:  # Fail safe; just dump to "./output/CONFIG NAME"
-            log_print(f"Failed to find relative path of config file {config_root} {config_path}")
+            logprint(f"Failed to find relative path of config file {config_root} {config_path}")
             experiment = Path(config_path).stem
             output_root = os.path.join(config["output_folder"], experiment)
 
@@ -309,7 +299,7 @@ def load_config(config_path, hwr=True,
 
     # Use config folder to determine output folder
     config["experiment"] = str(experiment)
-    log_print(f"Experiment: {experiment}, Results Directory: {output_root}")
+    logprint(f"Experiment: {experiment}, Results Directory: {output_root}")
 
     hyper_parameter_str = '{}'.format(
         config["name"],
@@ -353,14 +343,14 @@ def load_config(config_path, hwr=True,
             os.rename(link, old_link)
         symlink(config['results_dir'], link)
     except Exception as e:
-        log_print("Problem with RECENT link stuff: {}".format(e))
+        logprint("Problem with RECENT link stuff: {}".format(e))
 
     # Copy config to output folder
     # parent, child = os.path.split(config)
     try:
         shutil.copy(config_path, config['results_dir'])
     except Exception as e:
-        log_print(f"Could not copy config file: {e}")
+        logprint(f"Could not copy config file: {e}")
 
     for root in ["training_root", "testing_root"]:
         if root in config and config[root].find("data") == 0:
@@ -373,12 +363,12 @@ def load_config(config_path, hwr=True,
 
     if create_logger:
         logger = hwr_logger.setup_logging(folder=config["log_dir"], level=config["logging"].upper())
-        log_print(f"Effective logging level: {logger.getEffectiveLevel()}")
+        logprint(f"Effective logging level: {logger.getEffectiveLevel()}")
     else:
         logger = None
 
-    log_print("Using config file", config_path)
-    # log_print(json.dumps(config, indent=2))
+    logprint("Using config file", config_path)
+    # logprint(json.dumps(config, indent=2))
 
     config["logger"] = logger
 
@@ -476,7 +466,7 @@ def make_config_consistent_hwr(config):
         config["n_warp_iterations"] = 0
     elif (config["testing_occlude"] or config["testing_warp"]) and config["n_warp_iterations"] == 0:
         config["n_warp_iterations"] = 7
-        log_print("n_warp_iterations set to 0, changing to 11")
+        logprint("n_warp_iterations set to 0, changing to 11")
 
     if config["exclude_offline"]:
         training_data = "prepare_IAM_Lines/gts/lines/txt/training.json"
@@ -513,11 +503,11 @@ def make_config_consistent_hwr(config):
     # Removing online jsons if not using online
     for data_path in config["training_jsons"]:
         if "online" in data_path and not config["online_augmentation"]:
-            log_print(f"Online flag not specified -- removing {data_path}")
+            logprint(f"Online flag not specified -- removing {data_path}")
             config["training_jsons"].remove(data_path)
             config["online_flag"] = False  # turn off flag if no online data provided
         if not config.training_jsons:
-            log_print("No training json files -- check online_augmentation flag")
+            logprint("No training json files -- check online_augmentation flag")
             raise Exception("No training json files -- check online_augmentation flag")
 
     # Save images
@@ -582,7 +572,7 @@ def no_gpu_testing():
 
 def choose_optimal_gpu(priority="memory"):
     import GPUtil
-    log_print(GPUtil.getGPUs())
+    logprint(GPUtil.getGPUs())
     if priority == "memory":
         best_gpu = [(x.memoryFree, -x.load, i) for i, x in enumerate(GPUtil.getGPUs())]
     else:  # utilization
@@ -641,12 +631,12 @@ def wait_for_gpu():
 
     ## Wait until GPU is available -- only on Galois
     utilization, memory_utilization = get_gpu_utilization()
-    log_print(utilization)
+    logprint(utilization)
     if memory_utilization > 40:
         warnings.warn("Memory utilization is high; close other GPU processes")
 
     while utilization > 45:
-        log_print("Waiting 30 minutes for GPU...")
+        logprint("Waiting 30 minutes for GPU...")
         time.sleep(1800)
         utilization = GPUtil.getGPUs()[0].load * 100  # memoryUtil
     torch.cuda.empty_cache()
@@ -1246,7 +1236,7 @@ def plt_loss(config, plt_validation=True):
         plt.savefig(os.path.join(config["results_dir"], config['name'] + ".png"))
         plt.close()
     except Exception as e:
-        log_print("Problem graphing loss: {}".format(e))
+        logprint("Problem graphing loss: {}".format(e))
 
 
 class Decoder:
@@ -1257,7 +1247,7 @@ class Decoder:
 
         if beam:
             from ctcdecode import CTCBeamDecoder
-            log_print("Using beam")
+            logprint("Using beam")
             self.beam_decoder = CTCBeamDecoder(labels=idx_to_char.values(), blank_id=0, beam_width=30, num_processes=3,
                                                log_probs_input=True)
             self.decode_test = self.decode_batch_beam
@@ -1646,99 +1636,10 @@ python -u {python_script} --config '{config_path}'
     with Path(sh_path).open("w") as f:
         f.write(script)
 
-
-def graph_generated_img():
-    # save the image and save the GT image next to it
-    # save
-    pass
-
-
-def prep_coords_to_graph(config, coords, is_gt=True):
-    """
-
-    Args:
-        config:
-        coords: 1 set of coords (not batch)
-        is_gt:
-
-    Returns:
-
-    """
-    if not is_gt:
-        coords = to_numpy(coords)
-
-        if "stroke_number" in config.gt_format:
-            idx = config.gt_format.index("stroke_number")
-            if config.pred_opts[idx] == "cumsum":  # are the PREDS also CUMSUM?? or just the GTs
-                coords[idx] = relativefy_numpy(coords[idx], reverse=False)
-
-        # Round the SOS, EOS etc. items
-        coords[2:, :] = np.round(coords[2:, :])  # VOCAB SIZE, LENGTH
-    else:
-        coords = to_numpy(coords).transpose()  # LENGTH, VOCAB => VOCAB SIZE, LENGTH
-
-        if "stroke_number" in config.gt_format:
-            idx = config.gt_format.index("stroke_number")
-            coords[idx] = relativefy_numpy(coords[idx], reverse=False)
-    return coords
-
-
 def backup_alphabet(source_dict, destination_dict):
     destination_dict.alphabet_size = source_dict.alphabet_size
     destination_dict.char_freq = source_dict.char_freq
     destination_dict.idx_to_char = source_dict.idx_to_char
     destination_dict.char_to_idx = source_dict.char_to_idx
 
-
-if __name__ == "__main__":
-    from hwr_utils.visualize import Plot
-
-    viz = Plot(port=9001)
-    viz.viz.close()
-    viz.load_all_env("./results")
-
-
-def plot_recognition_images(line_imgs, name, text_str, dir=None, plot_count=None, live=False):
-    if dir is None:
-        dir = config["image_dir"]
-    # Save images
-    batch_size = len(line_imgs)
-    if plot_count is None or plot_count > batch_size:
-        plot_count = max(1, int(min(batch_size, 8) / 2) * 2)  # must be even, capped at 8
-    columns = min(plot_count, 1)
-    rows = int(plot_count / columns)
-    f, axarr = plt.subplots(rows, columns)
-    f.tight_layout()
-
-    if isinstance(text_str, types.GeneratorType):
-        text_str = list(text_str)
-
-    if len(line_imgs) > 1:
-
-        for j, img in enumerate(line_imgs):
-            if j >= plot_count:
-                break
-            coords = (j % rows, int(j / rows))
-            if columns == 1:
-                coords = coords[0]
-            ax = axarr[coords]
-            ax.set_xlabel(f"{text_str[j]}", fontsize=8)
-
-            ax.set_xticklabels(labels=ax.get_xticklabels(), fontdict={"fontsize": 6})  # label.set_fontsize(6)
-            ax.set_yticklabels(labels=ax.get_yticklabels(), fontdict={"fontsize": 6})  # label.set_fontsize(6)
-            ax.xaxis.set_ticklabels([])
-            ax.yaxis.set_ticklabels([])
-
-            ax.imshow(to_numpy(img.squeeze()), cmap='gray')
-            # more than 8 images is too crowded
-    else:
-        axarr.imshow(to_numpy(line_imgs.squeeze()), cmap='gray')
-
-    # plt.show()
-    if live:
-        plt.show()
-    else:
-        path = os.path.join(dir, '{}.png'.format(name))
-        plt.savefig(path, dpi=400)
-        plt.close('all')
 
