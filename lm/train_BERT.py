@@ -40,6 +40,8 @@ from lm_utils import *
 
 config = process_config_BERT.process_config(sys.argv[0])
 
+print(config)
+
 if config.wandb:
     wandb.config = config
     wandb.init(project="TrainBERT")
