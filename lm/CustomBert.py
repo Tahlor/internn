@@ -89,7 +89,11 @@ class BertModelCustom(BertPreTrainedModel):
             raise ValueError("You cannot specify both input_ids and inputs_embeds at the same time")
         elif input_ids is not None:
             input_shape = input_ids.size()
-            batch_size, seq_length = input_shape
+            if len(input_shape) < 3:
+                seq_length, alphabet_size = input_shape
+                batch_size = 1
+            else:
+                batch_size, seq_length, alphabet_size = input_shape
         elif inputs_embeds is not None:
             input_shape = inputs_embeds.size()[:-1]
             batch_size, seq_length = input_shape

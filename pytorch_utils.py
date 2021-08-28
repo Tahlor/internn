@@ -1,3 +1,4 @@
+import matplotlib.pyplot as plt
 from pathlib import Path
 import torch
 from general_tools.utils import get_root
@@ -77,6 +78,15 @@ def get_latest_file(folder, filename="*.pt"):
         return max(list_of_paths, key=lambda p: p.stat().st_ctime)
     else:
         return False
+
+def plot(losses, save=False):
+    plt.plot(losses)
+    if save:
+        plt.savefig(save, dpi=300)
+    else:
+        plt.show()
+    print(losses)
+
 
 if __name__ == "__main__":
     x = incrementer("/media/data/GitHub/internn/data/embedding_datasets/embeddings_v2.1", "BERT_embedding*.pt")

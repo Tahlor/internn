@@ -21,6 +21,7 @@ import wandb
 import random
 from transformers import AdamW
 import process_config_BERT
+import matplotlib.pyplot as plt
 
 print("ARG: ", sys.argv[1])
 config = process_config_BERT.process_config(sys.argv[1])
@@ -33,8 +34,6 @@ if config.wandb:
 
 LOADER_PATH = ROOT / config.folder_dependencies
 MODEL_PATH = ROOT / config.folder_outputs
-losses = []
-losses_10 = []
 text = 'abcdefghi jklmnopqrstuvwxyz'
 corpus = [char for char in text]
 
@@ -59,6 +58,7 @@ print(get_text(sample["gt_one_hot"]))
 model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
                                    hidden_size=config.experiment.embedding_dim,
                                    num_attention_heads=config.experiment.attention_heads)).to(config.device)
+
 objective = nn.CrossEntropyLoss()
 #objective = nn.NLLLoss(ignore_index=0)
 
@@ -99,32 +99,44 @@ train_dataset.train_mode = "full sequence"
 lr = optimizer.param_groups[0]['lr']
 print("INITIAL LR: ", lr)
 
-#if config.experiment.embedding_dim != :
-embedding = nn.Linear(config.vocab_size, config.experiment.embedding_dim).to(config.device) if config.experiment.embedding_dim else None
+embedding = nn.Linear(config.vocab_size, config.experiment.embedding_dim).to(config.device) if config.experiment.embedding_layer else None
 
-for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):
+def run_one_batch_default(sample):
+    x, y_truth, attention_mask = sample[config.experiment.loader_key].to(config.device), sample["masked_gt"].to(
+        config.device), sample["attention_mask"].to(config.device)
+    attention_mask = attention_mask.to(config.device)  # 1, sentence_length
+    if config.experiment.embedding_layer:
+        # Use an additional embedding layer when passing into BERT
+        # You still can't use BERT embeddings, since these assume input is discrete
+        #output, y_hat = model(input_ids=x, attention_mask=attention_mask)
+        x = embedding(x)
+    output, y_hat = model(inputs_embeds=x, attention_mask=attention_mask)
+    return output, y_hat, y_truth
+
+def run_one_batch_lm_only(sample):
+    attention_mask = sample["attention_mask"].to(config.device)
+    input_ids = y_truth = sample["gt_idxs"].to(config.device)
+    output, y_hat = model(input_ids=input_ids, attention_mask=attention_mask)
+    return output, y_hat, y_truth
+
+run_one = run_one_batch_lm_only if "language_only" in config.experiment_type else run_one_batch_default
+losses = []
+
+def run_epoch():
+    global losses, count
     print("epoch", epoch)
+    train_dataset.set_train_mode()
+    model.train()
+    losses_10 = []
+    start_time = datetime.datetime.now()
     for sample in train_loader:
         # train_dataset.train_mode = "single character" if random.random() < .5 else "full sequence"
-
-        x, y_truth, attention_mask = sample[config.experiment.loader_key].to(config.device), sample["masked_gt"].to(config.device), sample["attention_mask"].to(config.device)
-        if embedding:
-            x = embedding(x)
-
-        attention_mask = attention_mask.to(config.device) # 1, sentence_length
+        output, y_hat, y_truth = run_one(sample)
         optimizer.zero_grad()
-        if True:
-            output, y_hat = model(inputs_embeds=x, attention_mask=attention_mask)
-        else:
-            # If just training language model
-            # input_ids = sample["gt_idxs"].to(config.device)
-            # output, y_hat = model(input_ids=input_ids, attention_mask=attention_mask)
-            pass
         loss = objective(output.view(-1, config.vocab_size_extended), y_truth.squeeze(0).view(-1).to(config.device)) # y_hat includes extra tokens?
         loss.backward()
         losses_10.append(loss.item())
         optimizer.step()
-
 
         #get_text(output.squeeze())
         #sample["text"]
@@ -136,20 +148,52 @@ for epoch in range(config.starting_epoch if config.starting_epoch else 0, config
             losses_10 = []
             print("count", count, l)
             cer_list.append(cer_calculation(sample,output))
+            print("CER", cer_list[-1])
             scheduler.step(l)
             lr = optimizer.param_groups[0]['lr']
             if lr < config["lr"]:
                 print("New LR:", lr)
                 config["lr"] = lr
-        # if new_lr < 1.220703125e-08:
-        #     break
-    if epoch % config.save_freq_epoch == 0:
-        save_model(incrementer(MODEL_PATH, EXPERIMENT_NAME), model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
 
-import matplotlib.pyplot as plt
-plt.plot(losses)
-plt.show()
-print(losses)
+        if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
+            start_time = datetime.datetime.now()
+            break
+
+    if epoch % config.save_freq_epoch == 0:
+        save_model(incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt"), model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
+
+    # RUN TEST
+
+    plot(losses, MODEL_PATH / "losses.png")
+
+def run_test_set():
+    torch.cuda.empty_cache()
+    cer = [] ; losses = []
+    train_dataset.set_test_mode()
+    start_time = datetime.datetime.now()
+    model.eval()
+    try:
+        for sample in train_loader:
+            with torch.no_grad():
+                output, y_hat, y_truth = run_one(sample)
+                loss = objective(output.view(-1, config.vocab_size_extended), y_truth.squeeze(0).view(-1).to(config.device)) # y_hat includes extra tokens?
+            cer.append(cer_calculation(sample, output)); losses.append(loss.cpu().detach().item())
+
+            # 1 minute of testing
+            if (datetime.datetime.now() - start_time).seconds / 60 > 1:
+                start_time = datetime.datetime.now()
+                break
+    except Exception as e:
+        print(e)
+    avg_loss = np.average(losses)
+    avg_cer = np.average(cer)
+    print(f"TEST CER: {avg_cer:0.3f}")
+    print(f"TEST loss: {avg_loss:0.3f}")
+
+
+for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):
+    run_epoch()
+    run_test_set()
 
 total = 0
 correct = 0

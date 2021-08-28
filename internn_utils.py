@@ -26,6 +26,18 @@ import logging
 
 logger = logging.getLogger("root."+__name__)
 
+def get_computer():
+    return socket.gethostname()
+
+def is_galois():
+    return get_computer() == "Galois"
+
+def is_dalai():
+    return get_computer() in ["DalaiLama", "TheServe"]
+
+def is_taylor():
+    return get_computer() in ("Galois", "brodie")
+
 def read_config(config):
     config = Path(config)
     logprint(config)
@@ -88,99 +100,6 @@ def incrementer(root, base, make_folder=True):
     new_folder.mkdir(parents=True, exist_ok=True)
     return new_folder
 
-
-hwr_defaults = {"load_path": False,
-                "training_shuffle": False,
-                "testing_shuffle": False,
-                "test_only": False,
-                "TESTING": False,
-                "gpu_if_available": True,
-                "SKIP_TESTING": False,
-                "OVERFIT": False,
-                "TEST_FREQ": 1,
-                "SMALL_TRAINING": False,
-                "images_to_load": None,
-                "plot_freq": 50,
-                "rnn_layers": 2,
-                "nudger_rnn_layers": 2,
-                "nudger_rnn_dimension": 512,
-                "improve_image": False,
-                "decoder_type": "naive",
-                "rnn_type": "lstm",
-                "cnn": "default",
-                "online_flag": True,
-                "save_count": 0,
-                "training_blur": False,
-                "training_blur_level": 1.5,
-                "training_random_distortions": False,
-                "training_distortion_sigma": 6.0,
-                "testing_blur": False,
-                "testing_blur_level": 1.5,
-                "testing_random_distortions": False,
-                "testing_distortion_sigma": 6.0,
-                "occlusion_size": None,
-                "occlusion_freq": None,
-                "logging": "info",
-                "n_warp_iterations": 11,
-                "testing_occlude": False,
-                "testing_warp": False,
-                "optimizer_type": "adam",
-                "max_intensity": .4,
-                "exclude_offline": False,
-                "validation_jsons": [],
-                "elastic_transform": False,
-                "visdom_port": 9001,
-                "test_freq": 1,
-                "dataset": {"img_height": 61,
-                            "image_prep": "pil_with_distortion",
-                            "num_of_channels": 1,
-                            "include_synthetic": True,
-                            "adapted_gt_path": None,
-                            "linewidth": None,
-                            "resample": True,
-                            "kdtree": False
-                            },
-                }
-
-stroke_defaults = {"SMALL_TRAINING": False,
-                   "TESTING": False,
-                   "logging": "info",
-                   "use_visdom": True,
-                   "save_count": 0,
-                   "coord_conv": False,
-                   "data_root_fsl": "../hw_data/strokes",
-                   "data_root_local": ".",
-                   "training_nn_loss": False,
-                   "test_nn_loss": True,
-                   "test_nn_loss_freq": 1,
-                   "visdom_port": 9001,
-                   "gpu_if_available": True,
-                   "start_of_stroke_method": "normal",
-                   "interpolated_sos": "normal",
-                   "cumsum_window_size": 30,
-                   "convolve_func": "conv_weight",  # or conv_window
-                   "model_name": "normal",
-                   "dataset": {"img_height": 61,
-                               "image_prep": "pil_with_distortion",
-                               "num_of_channels": 1,
-                               "include_synthetic": True,
-                               "adapted_gt_path": None,
-                               "linewidth": None,
-                               "resample": True,
-                               "kdtree": False
-                               },
-                   "coordconv_method": "y_abs",
-                   "model_definition": {"nHidden": 128, "num_layers": 2},
-                   "model": None,
-                   "reset_LR": True,
-                   "load_optimizer": False,
-                   "stroke_model_pt_override": None,
-                   "stroke_model_config": None,
-                   "truncate": True,
-                   "test_freq": 1
-                   }
-
-
 def debugger(func):
     def wrapper(*args, **kwargs):
         try:
@@ -208,7 +127,7 @@ def recursive_default(d, defaults):
             d[k] = defaults[k]
         elif isinstance(d[k], dict):
             recursive_default(d[k], defaults[k])
-
+    return d
 
 def load_config(config_path, hwr=True,
                 testing=False,

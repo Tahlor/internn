@@ -4,13 +4,16 @@ ROOT = get_root("internn")
 import sys
 sys.path.append(ROOT)
 from pytorch_utils import *
-from internn_utils import read_config
+from internn_utils import read_config, recursive_default
 from general_tools.utils import get_root
 from easydict import EasyDict as edict
 
 ROOT = get_root("internn")
+DEFAULT_YAML = ROOT / "lm/configs/00_master.yaml"
 
 def process_config(path="./lm_config.yaml"):
+    defaults = read_config(DEFAULT_YAML)
+
     if not path:
         path = "./lm_config.yaml"
     config = read_config(path)
@@ -23,6 +26,7 @@ def process_config(path="./lm_config.yaml"):
     if config.device in ["gpu","cuda"]:
         config.device = torch.device('cuda:0')
 
+    config = recursive_default(config, defaults)
     """
     sep_token (separator token, used when building a sequence from multiple sequences, e.g. two sequences for sequence classification or for a text and a question for question answering
     pad_token

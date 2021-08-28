@@ -1,3 +1,15 @@
+## Run vgg_logits / vgg_embeddings
+    # L2, (softmax-logits only), default
+## FSL
+## WANDB / Logging / graphing
+## Language only
+## Fix linear layer -- research / perform experiments
+### EMERGENCY -- Need to check accuracy on test set -- it might just be learning the bigger embeddings
+## Test both models on their language ability -- when masking letters
+
+## Distortions?
+## other punctuation etc?
+
 
 # Paths
 folder_dependencies: "data/embedding_datasets/embeddings_v3"
@@ -13,9 +25,9 @@ experiment_prefix: BERT_
 experiment_type: vgg_embeddings # vgg_logits, vgg_embeddings, language_only
 
 vgg_logits:
-    embedding_dim: 27
-    attention_heads: 9
-    norm: L2 #L2,softmax,default - take a norm of the logits
+    embedding_dim: 512
+    attention_heads: 8
+    norm: default #L2,softmax,default - take a norm of the logits
     loader_key: vgg_logits
     train_mode: full sequence
         # full sequence - Provide entire input, predict the entire output
@@ -37,10 +49,12 @@ language_only:
     loader_key: null
 
 ## Generic Hyperparameters
-epochs: 300
+epochs: 12
+max_updates: null
 starting_epoch: null
 batch_size: 192
-save_freq_epoch: 10
+save_freq_epoch: 1
+update_freq_time: 15
 
 ## LR schedule
 lr: 1e-4     # LR
