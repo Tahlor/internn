@@ -121,6 +121,7 @@ def run_one_batch_lm_only(sample):
 
 run_one = run_one_batch_lm_only if "language_only" in config.experiment_type else run_one_batch_default
 losses = []
+SAVE_PATH = incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt")
 
 def run_epoch():
     global losses, count
@@ -160,7 +161,7 @@ def run_epoch():
             break
 
     if epoch % config.save_freq_epoch == 0:
-        save_model(incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt"), model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
+        save_model(SAVE_PATH, model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
 
     # RUN TEST
 
