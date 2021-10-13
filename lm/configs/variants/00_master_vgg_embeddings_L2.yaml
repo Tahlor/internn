@@ -1,0 +1,41 @@
+folder_dependencies:
+  embedding_dataset_folder: data/embedding_datasets/embeddings_v3
+  VGG_model_folder: null
+folder_outputs: data/embedding_datasets/embeddings_v3/TEST1
+wandb: false
+experiment_prefix: BERT_
+experiment_description: null
+experiment_type: vgg_embeddings
+embedding_norm: L2
+train_mode: full sequence
+train_mode2: null
+train_mode2_start: 4
+vision_fine_tuning: false
+vision_fine_tuning_start: 0
+alphabet: abcdefghi jklmnopqrstuvwxyz
+sentence_length: 32
+attention_heads: 8
+embedding_dim: 512
+workers: 12
+vgg_logits:
+  loader_key: vgg_logits
+  embedding_layer: true
+vgg_embeddings:
+  loader_key: data
+  embedding_layer: false
+language_only:
+  embedding_dim: 512
+  loader_key: null
+  train_mode: input occlusion
+epochs: 12
+max_updates: null
+starting_epoch: null
+batch_size: 192
+save_freq_epoch: 1
+update_freq_time: 15
+lr: 0.0001
+patience: 30
+decay_factor: 0.5
+steps_per_lr_update: 10
+device: gpu
+corpus: books

@@ -14,43 +14,53 @@
 ## Combine with digit MNIST
 
 # Paths
-folder_dependencies: "data/embedding_datasets/embeddings_v3"
+folder_dependencies:
+    embedding_dataset_folder: "data/embedding_datasets/embeddings_v3"  # Where to load embeddings/logits from
+    VGG_model_folder: null  # Where to load the VGG model from (if needed for tuning)
+
 folder_outputs:  "data/embedding_datasets/embeddings_v3/TEST1"
 wandb: false
 
 # Training Settings
 ## Experiment Definitions
-vocab_size: 27 # lowercase + space
+experiment_prefix: BERT_
+experiment_description: null
+experiment_type: vgg_embeddings # vgg_logits, vgg_embeddings, language_only - must refer to one of the subsections below
+
+embedding_norm: default #L2,softmax,default - take a norm of the logits
+train_mode: full sequence
+      # full sequence - assume the entire sequence is being predicted
+      # single character - mask / predict only one character
+      # multicharacter - not implemented; mask some of the input, predict only the masked portions
+
+
+## NOT IMPLEMENTED
+train_mode2: null
+train_mode2_start: 4 # how many epoch(?) before starting
+
+vision_fine_tuning: false # end-to-end training
+vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning
+alphabet: abcdefghi jklmnopqrstuvwxyz
+sentence_length: 32
+attention_heads: 8
+embedding_dim: 512
+workers: 12
 
 # Logits
-experiment_prefix: BERT_
-experiment_type: vgg_logits # vgg_logits, vgg_embeddings, language_only
-
 vgg_logits:
-    attention_heads: 8
-    norm: default #L2,softmax,default - take a norm of the logits
     loader_key: vgg_logits
-    train_mode: full sequence
-        # full sequence - Provide entire input, predict the entire output
-        # input occlusion - Provide partial input, predict the entire output
-        # default - Mask some of the input, predict only the masked portions
     embedding_layer: true # add an embedding layer to the front of BERT
-    embedding_dim: 512
 
 vgg_embeddings:
-    attention_heads: 8
-    norm: L2
     loader_key: data
-    train_mode: full sequence
-    embedding_layer: false
-    embedding_dim: 512
+    embedding_layer: false #
 
 # Need to get language only to work -- possibly use different framework
 language_only:
     # Mask some of the input, predict only the masked portions
     embedding_dim: 512
-    attention_heads: 8
     loader_key: null
+    train_mode: input occlusion
 
 ## Generic Hyperparameters
 epochs: 12

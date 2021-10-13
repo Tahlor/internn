@@ -1,0 +1,36 @@
+# LR schedule
+learning_rate: 1e-4          # LR
+scheduler_step: null         # Every X steps, multiply LR by gamma
+scheduler_gamma: .97         # LR decay rate
+workers: 12
+
+#
+test_size: null   # number of items in test dataset loader - smaller for faster prototyping
+train_size: null
+batch_size: 28
+
+# Main save folder
+save_folder: ./data/embedding_datasets/V  # This will be incremented each experiment
+
+# Where to load embeddings from
+save_embedding_dataset_folder:
+
+# Where to load the VGG model from (if needed for tuning)
+save_VGG_model_folder:
+
+### LM OPTIONS
+# logit_dimension: alphabet_size + x?
+logit_or_embedding: logit # [logit, embedding]
+embedding_dimension: 512  #
+logit_normalization: null # [null, softmax, L2]; also applies to embeddings
+train_mode: full sequence
+      # full sequence - assume the entire sequence is being predicted
+      # single character - mask / predict only one character
+      # multicharacter - not implemented
+
+
+embedding_layer_with_logits: true # use an embedding layer with logits; this yields a more fair comparison; automatically overriden to be false if using embedding mode
+vocab_size: 27 # can this be determined? no...
+sentence_length: 32
+#sentence_filter="lowercase",
+

@@ -34,17 +34,25 @@ if config.wandb:
 
 LOADER_PATH = ROOT / config.folder_dependencies
 MODEL_PATH = ROOT / config.folder_outputs
-text = 'abcdefghi jklmnopqrstuvwxyz'
+text = config.alphabet
 corpus = [char for char in text]
-
 EXPERIMENT_NAME = config.experiment_prefix + config.experiment_type
 
-train_dataset = SentenceDataset(PATH=LOADER_PATH / 'train_test_sentenceDataset.pt', which='Embeddings')
+train_dataset = SentenceDataset(PATH=LOADER_PATH / 'train_test_sentenceDataset.pt',
+                                which='Embeddings',
+                                train_mode=config.train_mode,
+                                sentence_length=config.sentence_length,
+                                sentence_filter="lowercase",
+                                vocab_size=config.vocab_size,
+                                normalize=config.embedding_norm,
+
+                                )
+
 train_loader = torch.utils.data.DataLoader(train_dataset,
                                            batch_size=config.batch_size,
                                            shuffle=True,
                                            collate_fn=collate_fn_embeddings,
-                                           num_workers=12)
+                                           num_workers=config.workers)
 
 
 sample = next(iter(train_dataset))
@@ -52,7 +60,6 @@ print("Batch Data Shape = ", sample["data"].squeeze(0).shape)
 print("Num Batch Labels = ", sample["gt_one_hot"].squeeze(0).shape)
 print("Output shape: ", sample["vgg_logits"].shape)
 print("Sen Lengths: ", sample["length"])
-
 print(get_text(sample["gt_one_hot"]))
 
 model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
@@ -130,7 +137,7 @@ def run_epoch():
     model.train()
     losses_10 = []
     start_time = datetime.datetime.now()
-    for sample in train_loader:
+    for ii, sample in enumerate(train_loader):
         # train_dataset.train_mode = "single character" if random.random() < .5 else "full sequence"
         output, y_hat, y_truth = run_one(sample)
         optimizer.zero_grad()
@@ -155,6 +162,11 @@ def run_epoch():
             if lr < config["lr"]:
                 print("New LR:", lr)
                 config["lr"] = lr
+            if config.wandb:
+                wandb.log({"loss": 0.314, "step": 5,
+                       "inputs": wandb.Image(inputs),
+                       "logits": wandb.Histogram(ouputs),
+                       "captions": wandb.Html(captions)})
 
         if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
             start_time = datetime.datetime.now()
@@ -199,57 +211,3 @@ for epoch in range(config.starting_epoch if config.starting_epoch else 0, config
 total = 0
 correct = 0
 
-"""
-Mask one letter and predict it
-"""
-for i_batch, sample in enumerate(train_loader):
-    x, y_truth = sample["data"].to(config.device), sample["gt"].to(config.device)
-
-    text = get_text(y_truth.squeeze(0))
-    input_ids, attention_mask, y_truth, index = get_inputs(text)
-
-    input_ids = input_ids.to(config.device)
-    attention_mask = attention_mask.to(config.device)
-
-    output, y_hat = model(input_ids, attention_mask)
-
-    if (text[index] == get_text(y_hat.argmax(-1))):
-        correct = correct + 1
-
-    total = total + 1
-
-print(correct / total)
-
-# correct = 0
-# for x, y_truth in val_loader:
-#   x, y_truth = x.to(config.device), y_truth.to(config.device)
-#   output, y_hat = model(input_embeddings = x)
-#   correct = correct + int(torch.sum(output.argmax(-1).squeeze(0) ==  y_truth.argmax(-1)))
-
-# print(correct/len(val_loader.dataset))
-
-total = 0
-correct = 0
-train_dataset.set_test_mode()
-
-for i_batch, sample in enumerate(train_loader):
-    x, y_truth = sample["data"].to(config.device), sample["gt"].to(config.device)
-
-    text = get_text(y_truth.squeeze(0))
-    input_ids, attention_mask, y_truth, index = get_inputs(text)
-
-    input_ids = input_ids.to(config.device)
-    attention_mask = attention_mask.to(config.device)
-
-    output, y_hat = model(input_ids, attention_mask)
-
-    # print("Text: ", text, index)
-    # print("Label: ", text[index])
-    # print("Prediction: ", get_text(y_truth.argmax(-1)))
-
-    if (text[index] == get_text(y_truth.argmax(-1))):
-        correct = correct + 1
-
-    total = total + 1
-
-print(correct / total)

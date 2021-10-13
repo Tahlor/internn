@@ -152,9 +152,9 @@ class SentenceDataset(Dataset):
         PATH: path to load the EmnistSampler previously saved
         which: 'Images' or 'Embeddings'
         train_mode:
-                full sequence - assume the entire sequence is being predicted
-                single character - mask / predict only one character
-                multicharacter - not implemented
+                    full sequence - assume the entire sequence is being predicted
+                    single character - mask / predict only one character
+                    multicharacter - not implemented
 
         TODO: Add multicharacter masking to train faster
         TODO: Add collate function
@@ -212,7 +212,7 @@ class SentenceDataset(Dataset):
         return self.len
 
     def get_sentence(self, sentence):
-        # Always begins and ends with a space
+        # Always begins and ends with a space - WHY???
         filtered_sentence = " " + self.filter_sentence(sentence["text"]) + " "
 
         try:
@@ -281,7 +281,7 @@ class SentenceDataset(Dataset):
         # Convert into a tensor for each list of tensors and return them in a pair
         x = torch.stack(x)
 
-        if self.which == 'Images': # Embed labels are tensors, Img labels are not.
+        if self.which in ('Images', 'Both'): # Embed labels are tensors, Img labels are not.
             gt_idxs = torch.tensor(gt_idxs)
             image = x
         else:
@@ -303,7 +303,7 @@ class SentenceDataset(Dataset):
             masked_gt = gt_idxs
         masked_gt = masked_gt.type(torch.LongTensor)
 
-        if self.which == 'Embeddings':  # Emb's pass the output distribution as well
+        if self.which in ('Embeddings', 'Both'):  # Emb's pass the output distribution as well
             vgg_logit = torch.stack(vgg_logit)
             vgg_text = get_text(vgg_logit)
             x = self.normalize_func(x, dim=-1)
