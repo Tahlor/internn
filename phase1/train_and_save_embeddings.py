@@ -12,9 +12,12 @@ import torch.nn.functional as F
 import numpy as np
 import sys
 import wandb
+from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 from general_tools.utils import get_root
-ROOT = get_root("internn")
+from internn_utils import process_config
 
+ROOT = get_root("internn")
+print(os.getcwd())
 os.chdir("..")
 sys.path.append(os.path.abspath("./data"))
 #import data.sen_loader
@@ -24,20 +27,16 @@ import argparse
 from data import loaders
 os.environ['CUDA_VISIBLE_DEVICES'] = str(0)
 
-OUTPUT = ROOT / "data/embedding_datasets/embeddings_v2_normalized"
-
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, default="./configs/stroke_config/baseline.yaml", help='Path to the config file.')
+    parser.add_argument('--config', type=str, default=ROOT / "phase1/configs/baseline.yaml", help='Path to the config file.')
     parser.add_argument('--testing', action="store_true", default=False, help='Run testing version')
+    parser.add_argument('--calc_embeddings', action="store_true", default=False, help='Calc embeddings only')
     #parser.add_argument('--name', type=str, default="", help='Optional - special name for this run')
     opts = parser.parse_args()
-    wandb.init(project="TEST")
-
     return opts
 
 device = 'cuda'
-
 
 # For updating learning rate
 def update_lr(optimizer, lr):
@@ -53,9 +52,6 @@ def test_model_load():
 
     #model1 = VGG().to(device)
     model1 = VGG_embedding().to(device)
-    # Loss and optimizer
-    criterion = nn.CrossEntropyLoss()
-    optimizer1 = torch.optim.Adam(model1.parameters(), lr=learning_rate)
 
     #Check test accuracy before load
     model1.eval()
@@ -92,17 +88,13 @@ def test_model_load():
 
     exit()
 
-def calc_embeddings(save_folder=OUTPUT, embedding=True):
+def calc_embeddings(config):
     """
-    Save the embeddings out
-        embedding (bool): True - save the embedding; False - save the softmax
-    Returns:
-
     """
-    save_folder = Path(save_folder); save_folder.mkdir(exist_ok=True, parents=True)
+    save_folder = Path(config.save_folder); save_folder.mkdir(exist_ok=True, parents=True)
     train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000)
     model1 = VGG_embedding().to(device)
-    loadVGG(model1, path=OUTPUT / "vgg.pt")
+    loadVGG(model1, path= config.save_folder / "vgg.pt")
 
     for l in "train","test":
         loader = train_loader if l == "train" else test_loader
@@ -148,28 +140,28 @@ def calc_embeddings(save_folder=OUTPUT, embedding=True):
         # if "normalized" in str(OUTPUT):
         #     for i in range(0,len(embeddings_list)):
         #         embeddings_list[i] = torch.nn.functional.normalize(embeddings_list[i], dim=-1)
+
         torch.save((embeddings_list, labels_list, one_hot_pred_list), save_folder / f'{l}_emb_dataset.pt')
 
-def main(num_epochs = 200,
-         learning_rate = 0.005,
-         momentum = 0.5,
-         log_interval = 500,
+def main(config,
          *args,
          **kwargs):
 
     # Loads random characters
-    train_loader, test_loader = loaders.loader(batch_size_train = 100, batch_size_test = 1000)
+    train_loader, test_loader = loaders.loader(batch_size_train=config.batch_size_train,
+                                               batch_size_test=config.batch_size_test)
 
     # Train the model
     total_step = len(train_loader)
-    curr_lr1 = learning_rate
+    curr_lr1 = config.learning_rate
 
     #model1 = VGG().to(device)
     model1 = VGG_embedding().to(device)
 
     # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
-    optimizer1 = torch.optim.Adam(model1.parameters(), lr=learning_rate)
+    optimizer1 = torch.optim.Adam(model1.parameters(), lr=config.learning_rate)
+    scheduler = ReduceLROnPlateau(optimizer1, 'min', patience=config.patience, factor=config.decay_factor)
 
     # Train the model
     total_step = len(train_loader)
@@ -179,7 +171,7 @@ def main(num_epochs = 200,
 
     space_image = (torch.zeros(28,28) + -.4242)[None,None,:,:].to(device)
 
-    for epoch in range(num_epochs):
+    for epoch in range(config.epochs):
         model1.train()
         for i, (images, labels) in enumerate(train_loader): #Modify if lengths need to be returned from collate fn
             images = images.to(device)
@@ -194,10 +186,12 @@ def main(num_epochs = 200,
             optimizer1.zero_grad() # clears old gradients from the previus step
             loss1.backward() # computes the derivative of the loss w,r,t the params using back propogation
             optimizer1.step() # causes the optimizer to take a step based on the gradients of the params (updates the weights)
-
+            #scheduler.step(loss1)
             if i == 499:
                 print("Ordinary Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}"
-                      .format(epoch + 1, num_epochs, i + 1, total_step, loss1.item()))
+                      .format(epoch + 1, config.epochs, i + 1, total_step, loss1.item()))
+            if config.TESTING:
+                break
 
         # Test the model
         model1.eval() # turns off dropout layers and batchnorm layers, aka sets model in inference mode
@@ -216,7 +210,7 @@ def main(num_epochs = 200,
                 correct1 += (predicted == labels).sum().item()
 
             if best_accuracy1 >= correct1 / total1:
-                curr_lr1 = learning_rate * np.asscalar(pow(np.random.rand(1), 3))
+                curr_lr1 = config.learning_rate * np.asscalar(pow(np.random.rand(1), 3))
                 update_lr(optimizer1, curr_lr1)
                 print('Test Accuracy of NN: {} % Best: {} %'.format(100 * correct1 / total1, 100 * best_accuracy1))
             else:
@@ -226,16 +220,19 @@ def main(num_epochs = 200,
 
                 # Save best model - Comment out if you intend on using the supercomputer to only write the best model after training
                 best_model = model1
-                saveVGG(model1, path=OUTPUT / "vgg.pt")
-
+                saveVGG(model1, path=Path(config.save_folder) / "vgg.pt")
 
     #saveVGG(best_model) # Uncomment for use on the fsl otherwise to get a saved model training needs to run to finish
-    calc_embeddings(OUTPUT)
 
 def resave():
-    calc_embeddings(OUTPUT)
-
+    calc_embeddings(config.save_folder)
 
 if __name__=='__main__':
-    #main()
+    opts = parse_args()
+    config = process_config(opts.config)
+    Path(config.save_folder).mkdir(parents=True, exist_ok=True)
+    if config.wandb:
+        wandb.init(project="TEST")
+    if not opts.calc_embeddings:
+        main(config)
     resave()

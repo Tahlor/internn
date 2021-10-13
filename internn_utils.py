@@ -48,6 +48,15 @@ def read_config(config):
     else:
         raise "Unknown Filetype {}".format(config)
 
+def process_config(path, default_config_path=None):
+    config = read_config(path)
+    config = edict(config)
+    if default_config_path:
+        defaults = read_config(default_config_path)
+        defaults = edict(defaults)
+        config = recursive_default(config, defaults)
+    return config
+
 def logprint(*args, print_statements=True):
     if print_statements:
         print(" ".join([str(a) for a in args]))

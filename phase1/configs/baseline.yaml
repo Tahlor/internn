@@ -1,0 +1,22 @@
+# LR schedule
+TESTING: false
+learning_rate: 5e-3          # LR
+epochs: 100
+wandb: False
+
+### NOT TESTED OR ENABLED
+patience: 50
+decay_factor: .5
+
+#
+test_size: null   # number of items in test dataset loader - smaller for faster prototyping
+train_size: null
+batch_size_train: 100
+batch_size_test: 1000
+
+# Main save folder -- for both the VGG model and all the embedding files
+save_folder: ./data/embedding_datasets/embeddings_V4  # This will be incremented each experiment
+
+
+#save_embedding_dataset_folder:
+#save_VGG_model_folder:

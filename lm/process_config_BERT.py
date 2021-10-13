@@ -4,24 +4,17 @@ ROOT = get_root("internn")
 import sys
 sys.path.append(ROOT)
 from pytorch_utils import *
-from internn_utils import read_config, recursive_default
+from internn_utils import read_config, recursive_default, process_config
 from general_tools.utils import get_root
 from easydict import EasyDict as edict
 
 ROOT = get_root("internn")
 DEFAULT_YAML = ROOT / "lm/configs/00_master.yaml"
 
-def process_config(path="./lm_config.yaml"):
-    defaults = read_config(DEFAULT_YAML)
-
-    if not path:
-        path = "./lm_config.yaml"
-    config = read_config(path)
-    config = edict(config)
-
+def bert_config(config):
+    config.vocab_size = len(config.alphabet)
     config.mask_id = config.vocab_size
     config.vocab_size_extended = config.vocab_size + 2 # additional BERT tokens or something -- not totally clear
-    config.vocab_size = len(config.alphabet)
 
     if not config.experiment_description:
         config.experiment_description = config.experiment_type
@@ -30,19 +23,15 @@ def process_config(path="./lm_config.yaml"):
     if config.device in ["gpu","cuda"]:
         config.device = torch.device('cuda:0')
 
-    config = recursive_default(config, defaults)
-
-
-
     ## EMBEDDING
-    if config.experiment_type == "embedding":
+    if config.experiment_type == "vgg_embeddings":
 
         # Never use an embedding layer with the embedding
         config.embedding_layer_with_logits = None
 
 
     ## LOGITS
-    elif config.experiment_type == "logit":
+    elif config.experiment_type == "vgg_logits":
         pass
 
     else:
@@ -59,5 +48,5 @@ def process_config(path="./lm_config.yaml"):
     return config
 
 if __name__ == "__main__":
-    config = process_config()
+    config = bert_config(process_config(DEFAULT_YAML))
     print(config)
