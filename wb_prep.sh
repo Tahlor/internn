@@ -21,8 +21,24 @@ add_to_file_if_missing() {
             cat << 'EOF' >> $FILE
 
 import socks
-socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 41080)
-socket = socks.socksocket
+
+def internet(host="8.8.8.8", port=53, timeout=3):
+    """
+    Host: 8.8.8.8 (google-public-dns-a.google.com)
+    OpenPort: 53/tcp
+    Service: domain (DNS/TCP)
+    """
+    try:
+        setdefaulttimeout(timeout)
+        socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except error as ex:
+        print(ex)
+        return False
+
+if not internet():
+  socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 41080)
+  socket = socks.socksocket
 EOF
         else
             echo "$FILE does not exists"

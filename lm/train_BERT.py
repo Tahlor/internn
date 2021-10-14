@@ -32,7 +32,8 @@ if config.wandb:
     wandb.config = config
     wandb.init(project="TrainBERT")
 
-LOADER_PATH = ROOT / config.folder_dependencies
+LOADER_PATH = ROOT / config.folder_dependencies.embedding_dataset_folder
+VGG_MODEL_PATH = ROOT / config.folder_dependencies.VGG_model_folder
 MODEL_PATH = ROOT / config.folder_outputs
 text = config.alphabet
 corpus = [char for char in text]
@@ -163,7 +164,7 @@ def run_epoch():
                 print("New LR:", lr)
                 config["lr"] = lr
             if config.wandb:
-                wandb.log({"loss": 0.314, "step": 5,
+                wandb.log({"loss": l, "step": ii, commit=False})
                        "inputs": wandb.Image(inputs),
                        "logits": wandb.Histogram(ouputs),
                        "captions": wandb.Html(captions)})

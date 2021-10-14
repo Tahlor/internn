@@ -16,8 +16,11 @@ from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 from general_tools.utils import get_root
 from internn_utils import process_config
 
+import logging
+logger = logging.getLogger("root."+__name__)
+
 ROOT = get_root("internn")
-print(os.getcwd())
+logger.log(os.getcwd())
 os.chdir("..")
 sys.path.append(os.path.abspath("./data"))
 #import data.sen_loader
@@ -66,7 +69,7 @@ def test_model_load():
             _, predicted = torch.max(outputs.data, 1)
             total1 += labels.size(0)
             correct1 += (predicted == labels).sum().item()
-        print('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
+        logger.log('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
 
     loadVGG(model1)
 
@@ -84,9 +87,11 @@ def test_model_load():
             _, predicted = torch.max(outputs.data, 1)
             total1 += labels.size(0)
             correct1 += (predicted == labels).sum().item()
-        print('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
+        logger.log('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
 
     exit()
+
+
 
 def calc_embeddings(config):
     """
@@ -94,7 +99,7 @@ def calc_embeddings(config):
     save_folder = Path(config.save_folder); save_folder.mkdir(exist_ok=True, parents=True)
     train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000)
     model1 = VGG_embedding().to(device)
-    loadVGG(model1, path= config.save_folder / "vgg.pt")
+    loadVGG(model1, path=Path(config.save_folder) / "vgg.pt")
 
     for l in "train","test":
         loader = train_loader if l == "train" else test_loader
@@ -188,7 +193,7 @@ def main(config,
             optimizer1.step() # causes the optimizer to take a step based on the gradients of the params (updates the weights)
             #scheduler.step(loss1)
             if i == 499:
-                print("Ordinary Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}"
+                logger.log("Ordinary Epoch [{}/{}], Step [{}/{}] Loss: {:.4f}"
                       .format(epoch + 1, config.epochs, i + 1, total_step, loss1.item()))
             if config.TESTING:
                 break
@@ -212,11 +217,11 @@ def main(config,
             if best_accuracy1 >= correct1 / total1:
                 curr_lr1 = config.learning_rate * np.asscalar(pow(np.random.rand(1), 3))
                 update_lr(optimizer1, curr_lr1)
-                print('Test Accuracy of NN: {} % Best: {} %'.format(100 * correct1 / total1, 100 * best_accuracy1))
+                logger.log('Test Accuracy of NN: {} % Best: {} %'.format(100 * correct1 / total1, 100 * best_accuracy1))
             else:
                 best_accuracy1 = correct1 / total1
                 net_opt1 = model1
-                print('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
+                logger.log('Test Accuracy of NN: {} % (improvement)'.format(100 * correct1 / total1))
 
                 # Save best model - Comment out if you intend on using the supercomputer to only write the best model after training
                 best_model = model1
@@ -224,8 +229,6 @@ def main(config,
 
     #saveVGG(best_model) # Uncomment for use on the fsl otherwise to get a saved model training needs to run to finish
 
-def resave():
-    calc_embeddings(config.save_folder)
 
 if __name__=='__main__':
     opts = parse_args()
@@ -233,6 +236,11 @@ if __name__=='__main__':
     Path(config.save_folder).mkdir(parents=True, exist_ok=True)
     if config.wandb:
         wandb.init(project="TEST")
+
+    ### OVERRIDE
+    opts.calc_embeddings = True
     if not opts.calc_embeddings:
         main(config)
-    resave()
+    calc_embeddings(config)
+
+
