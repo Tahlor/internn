@@ -96,7 +96,7 @@ cur_loss = 100
 prev_output = None
 cur_output = None
 val_loss = []
-count = 0
+STEP_GLOBAL = 0
 
 wtd_sum = 0
 wt = 0
@@ -132,7 +132,7 @@ losses = []
 SAVE_PATH = incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt")
 
 def run_epoch():
-    global losses, count
+    global losses, STEP_GLOBAL
     print("epoch", epoch)
     train_dataset.set_train_mode()
     model.train()
@@ -150,12 +150,12 @@ def run_epoch():
         #get_text(output.squeeze())
         #sample["text"]
 
-        count = count + 1
-        if count % config.steps_per_lr_update == 0 or count < 10:
+        STEP_GLOBAL = STEP_GLOBAL + 1
+        if STEP_GLOBAL % config.steps_per_lr_update == 0 or STEP_GLOBAL < 10:
             l = np.average(losses_10)
             losses.append(l)
             losses_10 = []
-            print("count", count, l)
+            print("STEP", STEP_GLOBAL, l)
             cer_list.append(cer_calculation(sample,output))
             print("CER", cer_list[-1])
             scheduler.step(l)
@@ -164,10 +164,7 @@ def run_epoch():
                 print("New LR:", lr)
                 config["lr"] = lr
             if config.wandb:
-                wandb.log({"loss": l, "step": ii, commit=False})
-                       "inputs": wandb.Image(inputs),
-                       "logits": wandb.Histogram(ouputs),
-                       "captions": wandb.Html(captions)})
+                wandb.log({"loss": l, "epoch": epoch, "step": ii}, step=STEP_GLOBAL, commit=False)
 
         if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
             start_time = datetime.datetime.now()
