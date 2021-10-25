@@ -1,14 +1,17 @@
 #!/bin/bash
 
 ### ADD SOCKS5 TO SOCKET
+TEXT="# BEGIN ADDITION"
+FILE="../env/internn/lib/python3.8/socket.py"
+
+remove_additions() {
+sed -i '/# BEGIN ADDITION/,/# END ADDITION/d' $FILE
+}
 
 add_to_file_if_missing() {
     # Example ./add_to_file_if_missing.sh "this" "this_file.txt"
-    TEXT=${1}
-    FILE=${2}
-
-    TEXT="socks.set_default_proxy"
-    FILE=${2-"../env/internn/lib/python3.8/socket.py"}
+    TEXT=${1:$TEXT}
+    FILE=${2:$FILE}
 
     echo "Looking for $TEXT"
     cat "$FILE" | grep -F "$TEXT" 
@@ -19,7 +22,7 @@ add_to_file_if_missing() {
             echo "$FILE exists, appending"
 
             cat << 'EOF' >> $FILE
-
+# BEGIN ADDITION
 import socks
 
 def internet(host="8.8.8.8", port=53, timeout=3):
@@ -39,6 +42,8 @@ def internet(host="8.8.8.8", port=53, timeout=3):
 if not internet():
   socks.set_default_proxy(socks.SOCKS5, "127.0.0.1", 41080)
   socket = socks.socksocket
+
+# END ADDITION
 EOF
         else
             echo "$FILE does not exists"
