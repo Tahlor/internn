@@ -25,6 +25,13 @@ from data import loaders
 import pickle
 RESET=False
 
+"""
+Creates:
+train_test_sentenceDataset.pt
+train_sorted_emnist.pt
+test_sorted_emnist.pt
+"""
+
 # Ignore Warnings
 import warnings
 from pathlib import Path
@@ -32,7 +39,7 @@ from general_tools.utils import get_root
 
 SCRIPT_DIR = (Path(__file__).resolve()).parent
 ROOT = get_root("internn")
-FOLDER = "data/embedding_datasets/embeddings_v3/"
+FOLDER = "data/embedding_datasets/embeddings_V4/"
 warnings.filterwarnings("ignore")
 
 import types
@@ -139,17 +146,20 @@ FILTERS = {"lowercase": lambda: filter_only_lowercase(include_digits=False),
            "filter_with_punctuation": filter_with_punctuation,
            }
 
+def default_normalize(input, dim=None):
+    return input
+
 NORMALIZE_FUNC = {
     "L2": torch.nn.functional.normalize,
     "softmax": torch.nn.functional.softmax,
-    "default": lambda x, *_: x
+    "default": default_normalize # lambda x, *_: x
 }
 
 class SentenceDataset(Dataset):
 
     """Dataset for sentences of 32 characters that can be return as either images or embeddings
         args:
-        PATH: path to load the EmnistSampler previously saved
+        PATH: path to load the SentenceDataset previously saved
         which: 'Images' or 'Embeddings'
         train_mode:
                     full sequence - assume the entire sequence is being predicted
@@ -160,7 +170,8 @@ class SentenceDataset(Dataset):
         TODO: Add collate function
         """
 
-    def __init__(self, PATH=None,
+    def __init__(self,
+                 PATH,
                  which='Images',
                  train=True,
                  train_mode="full sequence",
@@ -189,10 +200,10 @@ class SentenceDataset(Dataset):
         self.normalize_func = NORMALIZE_FUNC[normalize]
         assert train_mode in ["full sequence", "single character", "multicharacter"]
         assert which in ["Images", "Embeddings"]
-        if PATH != None:
-            self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
-            self.sentence_data_train, self.sentence_data_test = datasets.load_dataset('bookcorpus', split=['train[:85%]', 'train[85%:]'])
-            self.load_images()
+
+        self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
+        self.sentence_data_train, self.sentence_data_test = datasets.load_dataset('bookcorpus', split=['train[:85%]', 'train[85%:]'])
+        self.load_images()
         if self.train:
             self.set_train_mode()
 
@@ -321,45 +332,6 @@ class SentenceDataset(Dataset):
                 "vgg_logits": vgg_logit,
                 "vgg_text": vgg_text,
                 "gt_idxs": gt_idxs}
-
-    def createSentenceDataset(self, sen_list_path,
-                              embedding_sampler_path_train,
-                              embedding_sampler_path_test,
-                              emnist_sampler_path_train,
-                              emnist_sampler_path_test,
-                              save_path):
-        """
-        Function for creating and saving a saved SentenceDataset object. It will store the train and test set of sorted
-        emnist images, train and test set of sorted embeddings, and a list of the 32 character sentences from our corpus.
-        Args:
-            sen_list_path: path to .pkl file that contains the list of 32 char sentences
-            embedding_sampler_path: path to .pt file that contains the embeddings
-            emnist_sampler_path: path to .pt file that contains the sorted emnist images
-            train: boolean value of True (default) or False to determine the train or test set
-            output_path: path to where the saved SentenceDataset object will be stored.
-        Returns: No return value
-        """
-        ## sentence_data = load_sen_list('text_generation/sent_list.pkl')
-        ## images_loaded = EmnistSampler('sorted_train_emnist.pt', 'train')
-        ## emb_loaded = EmbeddingSampler('emb_dataset_train.pt', 'train')
-
-        print("Loading sentences...")
-
-        # sentence_data = load_sen_list(sen_list_path)
-        sentence_data = None
-
-        print("Loading train emnist images...")
-        train_images_loaded = EmnistSampler(emnist_sampler_path_train, which='train')
-        print("Loading test emnist images...")
-        test_images_loaded = EmnistSampler(emnist_sampler_path_test, which='test')
-        print("Loading train embeddings...")
-        train_emb_loaded = EmbeddingSampler(embedding_sampler_path_train, which='train')
-        print("Loading test embeddings...")
-        test_emb_loaded = EmbeddingSampler(embedding_sampler_path_test, which='test')
-        # SENTENCE_DATA, EmnistSampler, EmnistSampler, EmbeddingSampler, EmbeddingSampler
-        torch.save((sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded), save_path)
-        print("SAVED AT " + str(save_path))
-        return
 
     @staticmethod
     def letter_to_num(char):
@@ -585,6 +557,45 @@ def collate_fn_images(data):
     return new_imgs, new_labels, lengths
 
 
+def createSentenceDataset(sen_list_path,
+                          embedding_sampler_path_train,
+                          embedding_sampler_path_test,
+                          emnist_sampler_path_train,
+                          emnist_sampler_path_test,
+                          save_path):
+    """
+    Function for creating and saving a saved SentenceDataset object. It will store the train and test set of sorted
+    emnist images, train and test set of sorted embeddings, and a list of the 32 character sentences from our corpus.
+    Args:
+        sen_list_path: path to .pkl file that contains the list of 32 char sentences
+        embedding_sampler_path: path to .pt file that contains the embeddings
+        emnist_sampler_path: path to .pt file that contains the sorted emnist images
+        train: boolean value of True (default) or False to determine the train or test set
+        output_path: path to where the saved SentenceDataset object will be stored.
+    Returns: No return value
+    """
+    ## sentence_data = load_sen_list('text_generation/sent_list.pkl')
+    ## images_loaded = EmnistSampler('sorted_train_emnist.pt', 'train')
+    ## emb_loaded = EmbeddingSampler('emb_dataset_train.pt', 'train')
+
+    print("Loading sentences...")
+
+    # sentence_data = load_sen_list(sen_list_path)
+    sentence_data = None
+
+    print("Loading train emnist images...")
+    train_images_loaded = EmnistSampler(emnist_sampler_path_train, which='train')
+    print("Loading test emnist images...")
+    test_images_loaded = EmnistSampler(emnist_sampler_path_test, which='test')
+    print("Loading train embeddings...")
+    train_emb_loaded = EmbeddingSampler(embedding_sampler_path_train, which='train')
+    print("Loading test embeddings...")
+    test_emb_loaded = EmbeddingSampler(embedding_sampler_path_test, which='test')
+    # SENTENCE_DATA, EmnistSampler, EmnistSampler, EmbeddingSampler, EmbeddingSampler
+    torch.save((sentence_data, train_images_loaded, test_images_loaded, train_emb_loaded, test_emb_loaded), save_path)
+    print("SAVED AT " + str(save_path))
+    return
+
 # EXAMPLE CREATING data object to load in SentenceDataset
 def create_datasets(save_folder,
                     load_emb_train,
@@ -614,14 +625,16 @@ def create_datasets(save_folder,
     ## test_emb = EmbeddingSampler(which='test', load_path='train_test_emb_dict.pt')
 
     ## Everything previous is essential to have the necessary files to load
-    print("Loading Sentence Dataset...")
-    obj = SentenceDataset()
-    obj.createSentenceDataset(sen_list_path=ROOT / 'data/text_generation/sent_list.pkl',
-                              emnist_sampler_path_train= save_folder / 'train_sorted_emnist.pt',
-                              emnist_sampler_path_test=save_folder / 'test_sorted_emnist.pt',
-                              embedding_sampler_path_train= save_folder / 'train_test_emb_dict.pt',
-                              embedding_sampler_path_test=save_folder / 'train_test_emb_dict.pt',
-                              save_path= save_folder / "train_test_sentenceDataset.pt")
+    print("Creating Sentence Dataset...")
+    SAVE_PATH = save_folder / "train_test_sentenceDataset.pt"
+    createSentenceDataset(sen_list_path=ROOT / 'data/text_generation/sent_list.pkl',
+                          emnist_sampler_path_train=save_folder / 'train_sorted_emnist.pt',
+                          emnist_sampler_path_test=save_folder / 'test_sorted_emnist.pt',
+                          embedding_sampler_path_train=save_folder / 'train_test_emb_dict.pt',
+                          embedding_sampler_path_test=save_folder / 'train_test_emb_dict.pt',
+                          save_path=SAVE_PATH)
+    #obj = SentenceDataset(SAVE_PATH)
+
     print("Finished!")
 
 
@@ -732,8 +745,11 @@ if __name__ == '__main__':
     # Create datasets
     create_dataset_test()
 
+    # Test loading it
     sd = load_sen_dataset(which='Embeddings')
     m = next(iter(sd))
+
+
 
 """
 import importlib, sen_loader;importlib.reload(sen_loader); from sen_loader import *

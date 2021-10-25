@@ -24,7 +24,7 @@ import process_config_BERT
 import matplotlib.pyplot as plt
 
 print("ARG: ", sys.argv[1])
-config = process_config_BERT.process_config(sys.argv[1])
+config = process_config_BERT.bert_config(process_config(sys.argv[1]))
 
 print(config)
 
@@ -64,8 +64,8 @@ print("Sen Lengths: ", sample["length"])
 print(get_text(sample["gt_one_hot"]))
 
 model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
-                                   hidden_size=config.experiment.embedding_dim,
-                                   num_attention_heads=config.experiment.attention_heads)).to(config.device)
+                                   hidden_size=config.embedding_dim,
+                                   num_attention_heads=config.attention_heads)).to(config.device)
 
 objective = nn.CrossEntropyLoss()
 #objective = nn.NLLLoss(ignore_index=0)

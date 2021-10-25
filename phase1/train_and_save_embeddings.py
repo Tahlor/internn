@@ -16,6 +16,12 @@ from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 from general_tools.utils import get_root
 from internn_utils import process_config
 
+"""
+CREATES train/test_emb_dataset.pt and vgg.pt
+
+"""
+
+
 import logging
 logger = logging.getLogger("root."+__name__)
 

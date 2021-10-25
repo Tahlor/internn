@@ -58,7 +58,6 @@ vgg_embeddings:
 # Need to get language only to work -- possibly use different framework
 language_only:
     # Mask some of the input, predict only the masked portions
-    embedding_dim: 512
     loader_key: null
     train_mode: input occlusion
 
