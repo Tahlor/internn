@@ -16,7 +16,7 @@
 # Paths
 folder_dependencies:
     embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
-    VGG_model_folder: null  # Where to load the VGG model from (if needed for tuning)
+    VGG_model_folder: ''  # Where to load the VGG model from (if needed for tuning)
 
 folder_outputs:  "data/embedding_datasets/embeddings_V4/TEST1"
 wandb: false
