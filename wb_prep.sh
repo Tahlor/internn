@@ -1,5 +1,9 @@
 #!/bin/bash
 
+### USAGE:
+# wb_prep - add lines of text to file if they are not there
+# wb_prep DELETE - undo
+
 ### ADD SOCKS5 TO SOCKET
 TEXT="# BEGIN ADDITION"
 FILE="../env/internn/lib/python3.8/socket.py"
@@ -10,11 +14,11 @@ sed -i '/# BEGIN ADDITION/,/# END ADDITION/d' $FILE
 
 add_to_file_if_missing() {
     # Example ./add_to_file_if_missing.sh "this" "this_file.txt"
-    TEXT=${1:$TEXT}
-    FILE=${2:$FILE}
-
+    TEXT=${1:-$TEXT}
+    FILE=${2:-$FILE}
+    echo $FILE
     echo "Looking for $TEXT"
-    cat "$FILE" | grep -F "$TEXT" 
+    cat "$FILE" | grep -F "$TEXT"
 
     # If grep doesn't find it
     if [ $? -ne 0 ]; then
@@ -23,6 +27,7 @@ add_to_file_if_missing() {
 
             cat << 'EOF' >> $FILE
 # BEGIN ADDITION
+
 import socks
 
 def internet(host="8.8.8.8", port=53, timeout=3):
@@ -53,4 +58,8 @@ EOF
     fi
 }
 
-add_to_file_if_missing
+if [[ $1 == "DELETE" ]]; then
+    remove_additions
+else
+    add_to_file_if_missing
+fi
