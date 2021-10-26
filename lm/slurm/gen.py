@@ -43,7 +43,7 @@ class Generator():
             config_root_SEARCH = WHERE TO SEARCH FOR CONFIGS -- NEEDS TO BE LOCAL (on GALOIS)
         """
         self.use_experiment_folders=use_experiment_folders
-        self.group_path = group_path
+        self.group_path = self.current_group_path = group_path
         self.env = self.group_path / "env/internn" if environment is None else environment
         self.proj_dir = Path(self.group_path / "internn") if proj_dir is None else self.group_path / proj_dir
         self.python_script_path = Path(self.proj_dir) / python_script_path
@@ -58,6 +58,7 @@ class Generator():
         if socket.gethostname() in "Galois":
             self.sh_proj_root = Path(GALOIS_GROUP_PATH) / self.sh_proj_root.relative_to(self.group_path)
             self.config_root_SEARCH = Path(GALOIS_GROUP_PATH) / Path(self.config_root_REFERENCE).relative_to(self.group_path)
+            self.current_group_path = Path(GALOIS_GROUP_PATH)
             assert self.sh_proj_root
 
         # Environment
@@ -147,15 +148,15 @@ which python
             if self.use_experiment_folders:
                 experiment_folder = Path(sh_proj_root / subfolders.parent / config_path.stem); experiment_folder.mkdir(parents=True,exist_ok=True)
                 sh_path = experiment_folder / config_path.with_suffix('.sh').name
-                fsl_experiment_folder = group_path / Path(experiment_folder).relative_to(self.group_path)
+                fsl_experiment_folder = group_path / Path(experiment_folder).relative_to(self.current_group_path)
                 fsl_config_path = fsl_experiment_folder / config_path.name
                 log_path =  fsl_experiment_folder / ('log.slurm')
                 #os.rename(config_path, experiment_folder / config_path.name)
                 shutil.copy(config_path, experiment_folder / config_path.name)
 
             # Make log / config relative to CD dir
-            fsl_config_path = fsl_config_path.relative_to(cd_dir)
-            log_path = log_path.relative_to(cd_dir)
+            fsl_config_path = "." / fsl_config_path.relative_to(cd_dir)
+            log_path = "." / log_path.relative_to(cd_dir)
 
             py_script = python_script_path
             cd_path = cd_dir

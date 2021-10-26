@@ -2,11 +2,11 @@ TESTING: true
 folder_dependencies:
   embedding_dataset_folder: data/embedding_datasets/embeddings_V4
   VGG_model_folder: ''
-folder_outputs: results/variants/00_master_vgg_embeddings_L2
+folder_outputs: results/variants/_vgg_logits_L2
 wandb: false
 experiment_prefix: BERT_
 experiment_description: null
-experiment_type: vgg_embeddings
+experiment_type: vgg_logits
 embedding_norm: L2
 train_mode: full sequence
 train_mode2: null
