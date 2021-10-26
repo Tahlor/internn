@@ -1,7 +1,8 @@
+TESTING: true
 folder_dependencies:
   embedding_dataset_folder: data/embedding_datasets/embeddings_V4
   VGG_model_folder: ''
-folder_outputs: data/embedding_datasets/embeddings_V4/TEST1
+folder_outputs: results/variants/00_master_vgg_logits_default
 wandb: false
 experiment_prefix: BERT_
 experiment_description: null
@@ -16,7 +17,7 @@ alphabet: abcdefghi jklmnopqrstuvwxyz
 sentence_length: 32
 attention_heads: 8
 embedding_dim: 512
-workers: 12
+workers: 5
 vgg_logits:
   loader_key: vgg_logits
   embedding_layer: true
@@ -26,12 +27,12 @@ vgg_embeddings:
 language_only:
   loader_key: null
   train_mode: input occlusion
-epochs: 12
+epochs: 20
 max_updates: null
 starting_epoch: null
 batch_size: 192
 save_freq_epoch: 1
-update_freq_time: 15
+epoch_length: 100000
 lr: 0.0001
 patience: 30
 decay_factor: 0.5

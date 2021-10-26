@@ -74,6 +74,9 @@ def replace_config(yaml_path, variation_list, new_folder="variants"):
                 file_name_variant_abbreviation += Path(str(value)).stem
             output_file += f"_{file_name_variant_abbreviation}"
 
+        # Replace experiment output folder
+        new_yaml_file["folder_outputs"] = yaml_file["folder_outputs"].replace("*EXPERIMENT*", f"variants/{output_file}")
+
         #with open((parent / name).with_suffix(ext), "w") as f:
         with (output_dir / (output_file + ext)).open(mode='w') as f:
             yaml.dump(new_yaml_file, f, default_flow_style=False, sort_keys=False)
@@ -103,9 +106,10 @@ if __name__=="__main__":
               cd_dir=None,
               python_script_path="train_BERT.py",
               config_root="./configs",
-              sh_proj_root=None,
+              sh_proj_root="./results",
               log_root=None,
-              hardware_dict=None)
+              hardware_dict={"threads":7, "time":"4:00:00", "gpu":"pascal"},
+              use_experiment_folders=True)
 
     # Make scripts executable
     Popen('find . -type f -iname "*.sh" -exec chmod +x {}  \;', shell=True)

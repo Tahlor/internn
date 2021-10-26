@@ -13,12 +13,14 @@
 ## Check baseline with only lowercase
 ## Combine with digit MNIST
 
+TESTING: true
+
 # Paths
 folder_dependencies:
     embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
     VGG_model_folder: ''  # Where to load the VGG model from (if needed for tuning)
 
-folder_outputs:  "data/embedding_datasets/embeddings_V4/TEST1"
+folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
 wandb: false
 
 # Training Settings
@@ -44,7 +46,7 @@ alphabet: abcdefghi jklmnopqrstuvwxyz
 sentence_length: 32
 attention_heads: 8
 embedding_dim: 512
-workers: 12
+workers: 5
 
 # Logits
 vgg_logits:
@@ -62,12 +64,13 @@ language_only:
     train_mode: input occlusion
 
 ## Generic Hyperparameters
-epochs: 12
+epochs: 20
 max_updates: null
 starting_epoch: null
 batch_size: 192
 save_freq_epoch: 1
-update_freq_time: 15
+#update_freq_time: 15 # How many minutes between epochs -- this is STUPID!!
+epoch_length: 100000
 
 ## LR schedule
 lr: 1e-4     # LR

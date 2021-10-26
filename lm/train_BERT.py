@@ -23,10 +23,18 @@ from transformers import AdamW
 import process_config_BERT
 import matplotlib.pyplot as plt
 
-print("ARG: ", sys.argv[1])
-config = process_config_BERT.bert_config(process_config(sys.argv[1]))
+RESULTS = edict({})
 
-print(config)
+def printR(key, value):
+    print(key, value)
+    RESULTS[key] = value
+
+config_path = sys.argv[1]
+print("ARG: ", config_path)
+
+config = process_config_BERT.bert_config(process_config(config_path))
+
+printR("config",config)
 
 if config.wandb:
     wandb.config = config
@@ -34,7 +42,13 @@ if config.wandb:
 
 LOADER_PATH = ROOT / config.folder_dependencies.embedding_dataset_folder
 VGG_MODEL_PATH = ROOT / config.folder_dependencies.VGG_model_folder
-MODEL_PATH = ROOT / config.folder_outputs
+
+# Incrementer
+config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", Path(config_path).stem)
+exp = "RUN" if not config.TESTING else "RUN_TESTING"
+config.folder_outputs = incrementer(config.folder_outputs, exp, make_new_folder=True)
+shutil.copy(config_path, config.folder_outputs)
+MODEL_PATH = ROOT / "lm" / config.folder_outputs
 text = config.alphabet
 corpus = [char for char in text]
 EXPERIMENT_NAME = config.experiment_prefix + config.experiment_type
@@ -57,11 +71,11 @@ train_loader = torch.utils.data.DataLoader(train_dataset,
 
 
 sample = next(iter(train_dataset))
-print("Batch Data Shape = ", sample["data"].squeeze(0).shape)
-print("Num Batch Labels = ", sample["gt_one_hot"].squeeze(0).shape)
-print("Output shape: ", sample["vgg_logits"].shape)
-print("Sen Lengths: ", sample["length"])
-print(get_text(sample["gt_one_hot"]))
+printR("Batch Data Shape", sample["data"].squeeze(0).shape)
+printR("Num Batch Labels", sample["gt_one_hot"].squeeze(0).shape)
+printR("Output shape", sample["vgg_logits"].shape)
+printR("Sen Lengths", sample["length"])
+printR("GT One Hot", get_text(sample["gt_one_hot"]))
 
 model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
                                    hidden_size=config.embedding_dim,
@@ -71,12 +85,17 @@ objective = nn.CrossEntropyLoss()
 #objective = nn.NLLLoss(ignore_index=0)
 
 parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
-print(f"PARAMETERS: {parameters}")
+printR(f"PARAMETERS", parameters)
+embedding = nn.Linear(config.vocab_size, config.embedding_dim).to(config.device) if config.experiment.embedding_layer else None
+all_parameters = [{'params': model.parameters()}]
+if embedding:
+    printR(f"Embedding parameters", sum(p.numel() for p in embedding.parameters() if p.requires_grad))
+    all_parameters.append({'params': embedding.parameters()})
 
 # 51258938
 #  2083333
 
-optimizer = AdamW(model.parameters(), lr=config.lr)
+optimizer = AdamW(all_parameters, lr=config.lr)
 scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.patience, factor=config.decay_factor)
 
 latest = get_latest_file(config.folder_outputs, EXPERIMENT_NAME)
@@ -102,12 +121,8 @@ wtd_sum = 0
 wt = 0
 cer_list = []
 
-train_dataset.train_mode = "full sequence"
-
 lr = optimizer.param_groups[0]['lr']
-print("INITIAL LR: ", lr)
-
-embedding = nn.Linear(config.vocab_size, config.embedding_dim).to(config.device) if config.experiment.embedding_layer else None
+printR("INITIAL LR", lr)
 
 def run_one_batch_default(sample):
     x, y_truth, attention_mask = sample[config.experiment.loader_key].to(config.device), sample["masked_gt"].to(
@@ -129,7 +144,12 @@ def run_one_batch_lm_only(sample):
 
 run_one = run_one_batch_lm_only if "language_only" in config.experiment_type else run_one_batch_default
 losses = []
-SAVE_PATH = incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt")
+SAVE_PATH = Path(MODEL_PATH) / (EXPERIMENT_NAME + ".pt") #incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt")
+RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
+RESULTS["train_loss"] = losses
+RESULTS["train_CER"] = cer_list
+RESULTS["test_loss"] = []
+RESULTS["test_CER"] = []
 
 def run_epoch():
     global losses, STEP_GLOBAL
@@ -164,17 +184,21 @@ def run_epoch():
                 print("New LR:", lr)
                 config["lr"] = lr
             if config.wandb:
-                wandb.log({"loss": l, "epoch": epoch, "step": ii}, step=STEP_GLOBAL, commit=False)
-
-        if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
-            start_time = datetime.datetime.now()
+                wandb.log({"loss": l, "epoch": epoch, "step": ii, "cer":cer_list[-1]}, step=STEP_GLOBAL, commit=False)
+            if config.TESTING:
+                break
+        # if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
+        #     start_time = datetime.datetime.now()
+        #     break
+        # Define an epoch by some arbitrary number of updates
+        if ii*config.batch_size > config.epoch_length:
             break
 
     if epoch % config.save_freq_epoch == 0:
         save_model(SAVE_PATH, model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
 
     # RUN TEST
-
+    np.save(RESULTS_NPY_PATH, RESULTS, allow_pickle=True)
     plot(losses, MODEL_PATH / "losses.png")
 
 def run_test_set():
@@ -200,12 +224,15 @@ def run_test_set():
     avg_cer = np.average(cer)
     print(f"TEST CER: {avg_cer:0.3f}")
     print(f"TEST loss: {avg_loss:0.3f}")
-
+    RESULTS["test_loss"].append(avg_cer)
+    RESULTS["test_CER"].append(avg_loss)
+    return avg_loss, avg_cer
 
 for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):
     run_epoch()
-    run_test_set()
+    test_loss, test_cer = run_test_set()
+    if config.wandb:
+        wandb.log({"test_loss": test_loss, "epoch": epoch, "test_cer": test_cer}, step=STEP_GLOBAL, commit=True)
 
 total = 0
 correct = 0
-
