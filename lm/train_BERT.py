@@ -107,7 +107,7 @@ train_dataset.train_mode = "full sequence"
 lr = optimizer.param_groups[0]['lr']
 print("INITIAL LR: ", lr)
 
-embedding = nn.Linear(config.vocab_size, config.experiment.embedding_dim).to(config.device) if config.experiment.embedding_layer else None
+embedding = nn.Linear(config.vocab_size, config.embedding_dim).to(config.device) if config.experiment.embedding_layer else None
 
 def run_one_batch_default(sample):
     x, y_truth, attention_mask = sample[config.experiment.loader_key].to(config.device), sample["masked_gt"].to(
