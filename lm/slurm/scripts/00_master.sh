@@ -4,7 +4,7 @@
 #SBATCH --mem-per-cpu 12500MB
 #SBATCH --ntasks 8
 #SBATCH --nodes=1
-#SBATCH --output="/lustre/scratch/grp/fslg_internn/internn/lm/slurm/scripts/variants/log_00_master_vgg_logits_softmax.slurm"
+#SBATCH --output="/lustre/scratch/grp/fslg_internn/internn/lm/slurm/scripts/log_00_master.slurm"
 #SBATCH --time 72:00:00
 #SBATCH --mail-user=taylornarchibald@gmail.com   # email address
 #SBATCH --mail-type=BEGIN
@@ -23,5 +23,5 @@ conda activate /lustre/scratch/grp/fslg_internn/env/internn
 
 cd "/lustre/scratch/grp/fslg_internn/internn/lm"
 which python
-python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py --config '/media/data/GitHub/internn/lm/configs/variants/00_master_vgg_logits_softmax.yaml'
+python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py --config '/media/data/GitHub/internn/lm/configs/00_master.yaml'
     

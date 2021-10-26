@@ -104,7 +104,7 @@ module load cudnn/7.6
 
 export PATH="{env}:$PATH"
 eval "$(conda shell.bash hook)"
-conda activate $PATH
+conda activate {env}
 
 cd "{cd_path}"
 which python

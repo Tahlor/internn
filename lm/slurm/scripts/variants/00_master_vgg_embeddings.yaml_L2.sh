@@ -19,8 +19,9 @@ module load cudnn/7.6
 
 export PATH="/lustre/scratch/grp/fslg_internn/env/internn:$PATH"
 eval "$(conda shell.bash hook)"
-conda activate $PATH
+conda activate /lustre/scratch/grp/fslg_internn/env/internn
 
 cd "/lustre/scratch/grp/fslg_internn/internn/lm"
 which python
 python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py --config '/media/data/GitHub/internn/lm/configs/variants/00_master_vgg_embeddings.yaml_L2.yaml'
+    
