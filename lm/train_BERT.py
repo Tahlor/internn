@@ -29,7 +29,7 @@ def printR(key, value):
     print(key, value)
     RESULTS[key] = value
 
-config_path = sys.argv[1]
+config_path = Path(sys.argv[1])
 print("ARG: ", config_path)
 
 config = process_config_BERT.bert_config(process_config(config_path))
@@ -44,7 +44,7 @@ LOADER_PATH = ROOT / config.folder_dependencies.embedding_dataset_folder
 VGG_MODEL_PATH = ROOT / config.folder_dependencies.VGG_model_folder
 
 # Incrementer
-config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", Path(config_path).stem)
+config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", str(config_path.parent / config_path.stem))
 exp = "RUN" if not config.TESTING else "RUN_TESTING"
 config.folder_outputs = incrementer(config.folder_outputs, exp, make_new_folder=True)
 shutil.copy(config_path, config.folder_outputs)
