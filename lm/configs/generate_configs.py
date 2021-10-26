@@ -72,10 +72,10 @@ def replace_config(yaml_path, variation_list, new_folder="variants"):
                     file_name_variant_abbreviation += Path(str(val)).stem + "_" # mostly get rid of "/" etc.
             else:
                 file_name_variant_abbreviation += Path(str(value)).stem
-            output_file += f"_{file_name_variant_abbreviation}{ext}"
+            output_file += f"_{file_name_variant_abbreviation}"
 
         #with open((parent / name).with_suffix(ext), "w") as f:
-        with (output_dir / (output_file)).open(mode='w') as f:
+        with (output_dir / (output_file + ext)).open(mode='w') as f:
             yaml.dump(new_yaml_file, f, default_flow_style=False, sort_keys=False)
 
         output_files.append(output_file)
