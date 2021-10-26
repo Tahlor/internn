@@ -127,12 +127,13 @@ which python
         print(p)
         for config_path in p.rglob(f"*.yaml"):  # use rglob for recursion
             # Define paths
+            fsl_path = Path(config_root_REFERENCE) / config_path.relative_to(Path(config_root_SEARCH))
             subfolders = config_path.relative_to(p)  # = 'c/d'
             sh_path = Path(sh_proj_root / subfolders.parent / config_path.with_suffix('.sh').name)
             log_path = Path(log_root / subfolders.parent / ('log_' + config_path.with_suffix('.slurm').name))
             py_script = python_script_path
             cd_path = cd_dir
-            command = f"python -u {py_script} --config '{config_path}'"
+            command = f"python -u {py_script} --config '{fsl_path}'"
             #print(f"sh:{sh_path} log:{log_path} cd: {cd_path}")
             # if socket.gethostname() == "Galois":
             #     log_path = sh_proj_root / log_path.relative_to(proj_dir)

@@ -23,5 +23,5 @@ conda activate /lustre/scratch/grp/fslg_internn/env/internn
 
 cd "/lustre/scratch/grp/fslg_internn/internn/lm"
 which python
-python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py --config '/media/data/GitHub/internn/lm/configs/variants/00_master_vgg_embeddings_default.yaml'
+python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py --config '/lustre/scratch/grp/fslg_internn/internn/lm/configs/variants/00_master_vgg_embeddings_default.yaml'
     
