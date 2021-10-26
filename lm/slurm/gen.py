@@ -133,7 +133,7 @@ which python
             log_path = Path(log_root / subfolders.parent / ('log_' + config_path.with_suffix('.slurm').name))
             py_script = python_script_path
             cd_path = cd_dir
-            command = f"python -u {py_script} --config '{fsl_path}'"
+            command = f"python -u {py_script} '{fsl_path}'"
             #print(f"sh:{sh_path} log:{log_path} cd: {cd_path}")
             # if socket.gethostname() == "Galois":
             #     log_path = sh_proj_root / log_path.relative_to(proj_dir)

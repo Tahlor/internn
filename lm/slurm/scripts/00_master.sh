@@ -23,5 +23,5 @@ conda activate /lustre/scratch/grp/fslg_internn/env/internn
 
 cd "/lustre/scratch/grp/fslg_internn/internn/lm"
 which python
-python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py --config '/lustre/scratch/grp/fslg_internn/internn/lm/configs/00_master.yaml'
+python -u /lustre/scratch/grp/fslg_internn/internn/lm/train_BERT.py '/lustre/scratch/grp/fslg_internn/internn/lm/configs/00_master.yaml'
     

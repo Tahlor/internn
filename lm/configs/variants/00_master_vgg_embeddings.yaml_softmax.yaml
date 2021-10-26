@@ -6,7 +6,7 @@ wandb: false
 experiment_prefix: BERT_
 experiment_description: null
 experiment_type: vgg_embeddings
-embedding_norm: L2
+embedding_norm: softmax
 train_mode: full sequence
 train_mode2: null
 train_mode2_start: 4

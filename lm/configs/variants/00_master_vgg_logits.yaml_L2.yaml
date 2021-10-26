@@ -5,7 +5,7 @@ folder_outputs: data/embedding_datasets/embeddings_V4/TEST1
 wandb: false
 experiment_prefix: BERT_
 experiment_description: null
-experiment_type: vgg_embeddings
+experiment_type: vgg_logits
 embedding_norm: L2
 train_mode: full sequence
 train_mode2: null

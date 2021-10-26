@@ -5,6 +5,7 @@ from itertools import product
 import sys
 sys.path.append("../slurm")
 import gen
+from subprocess import Popen
 
 baseline_configs = ["00_master.yaml"]
 
@@ -95,4 +96,17 @@ if __name__=="__main__":
         main(config, variation_dict, baseline_dict)
 
     gen.delete_old_sh()
-    gen.loop_configs(gen.config_root, gen.sh_root)
+
+    gen.Generator(group_path=Path("/lustre/scratch/grp/fslg_internn/"),
+              environment=None,
+              proj_dir=Path("./internn/lm"),
+              cd_dir=None,
+              python_script_path="train_BERT.py",
+              config_root="./configs",
+              sh_proj_root=None,
+              log_root=None,
+              hardware_dict=None)
+
+    # Make scripts executable
+    Popen('find . -type f -iname "*.sh" -exec chmod +x {}  \;', shell=True)
+    #gen.loop_configs(gen.config_root, gen.sh_root)
