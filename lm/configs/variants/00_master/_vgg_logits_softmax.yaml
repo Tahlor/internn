@@ -2,7 +2,7 @@ TESTING: true
 folder_dependencies:
   embedding_dataset_folder: data/embedding_datasets/embeddings_V4
   VGG_model_folder: ''
-folder_outputs: results/variants/00_master_vgg_logits_softmax
+folder_outputs: results/variants/_vgg_logits_softmax
 wandb: false
 experiment_prefix: BERT_
 experiment_description: null

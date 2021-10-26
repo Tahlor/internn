@@ -56,14 +56,14 @@ def replace_config(yaml_path, variation_list, new_folder="variants"):
     parent = yaml_path.parent
     ext = yaml_path.suffix
 
-    output_dir = Path(parent / new_folder).absolute()
+    output_dir = Path(parent / new_folder / name).absolute()
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}")
     output_files = []
     for variant in variation_list:
         new_yaml_file = yaml_file.copy()
 
-        output_file = name
+        output_file = ""
         for key, value in variant.items():
             new_yaml_file[key] = value
             file_name_variant_abbreviation = ""
