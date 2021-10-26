@@ -3,12 +3,14 @@ from pathlib import Path
 import yaml
 from itertools import product
 import sys
-sys.path.append("../slurm")
+from general_tools.utils import get_root
+LM = get_root("lm")
+sys.path.append(str(LM / "slurm"))
 import gen
 from subprocess import Popen
 
 baseline_configs = ["00_master.yaml"]
-
+baseline_configs = [ (LM / "configs") / b for b in baseline_configs]
 variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
                   "embedding_norm":["L2","softmax","default"]}
 

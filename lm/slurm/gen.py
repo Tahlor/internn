@@ -154,9 +154,9 @@ which python
                 #os.rename(config_path, experiment_folder / config_path.name)
                 shutil.copy(config_path, experiment_folder / config_path.name)
 
-            # Make log / config relative to CD dir
+            # Make config relative to CD dir; (log dir would need to be relative to CWD which we don't know)
             fsl_config_path = "." / fsl_config_path.relative_to(cd_dir)
-            log_path = "." / log_path.relative_to(cd_dir)
+
 
             py_script = python_script_path
             cd_path = cd_dir
@@ -215,7 +215,7 @@ def delete_old_sh(path="."):
 
 if __name__=="__main__":
     delete_old_sh()
-    Generator(group_path=Path("/lustre/scratch/grp/fslg_internn/"),
+    g = Generator(group_path=Path("/lustre/scratch/grp/fslg_internn/"),
               environment=None,
               proj_dir=Path("./internn/lm"),
               cd_dir=None,
@@ -227,4 +227,5 @@ if __name__=="__main__":
               use_experiment_folders=True)
 
     # Make scripts executable
-    Popen('find . -type f -iname "*.sh" -exec chmod +x {}  \;', shell=True)
+    output = g.sh_proj_root
+    Popen('cd '+ str(output) + ' ; find . -type f -iname "*.sh" -exec chmod +x {}  \;', shell=True)
