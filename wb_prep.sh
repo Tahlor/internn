@@ -4,6 +4,12 @@
 # wb_prep - add lines of text to file if they are not there
 # wb_prep DELETE - undo
 
+# RUN PORT COMMAND ON LOGIN NODE
+# if ! pgrep -f "$(hostname)" > /dev/null ; then
+# ssh -fNt -D 41080 tarch@login04.rc.byu.edu;
+# fi;
+#
+
 ### ADD SOCKS5 TO SOCKET
 TEXT="# BEGIN ADDITION"
 FILE="../env/internn/lib/python3.8/socket.py"

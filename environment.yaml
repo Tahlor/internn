@@ -72,3 +72,4 @@ dependencies:
     - easydict
 prefix: /home/taylor/anaconda3/envs/transformers
 
+# conda install pytorch torchvision cudatoolkit=11.3 -c pytorch

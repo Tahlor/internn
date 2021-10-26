@@ -7,7 +7,7 @@ from subprocess import Popen
 #kill_41080="ps -aux | grep "login04.rc.byu.edu" | awk "{print \$2}" | xargs kill -9"
 
 open_port_command="""
-if ! pgrep -f "login04.rc.byu.edu" > /dev/null ; then
+if ! pgrep -f "$(hostname)" > /dev/null ; then
 ssh -fNt -D 41080 tarch@login04.rc.byu.edu;
 fi;
 """
