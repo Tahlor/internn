@@ -178,7 +178,8 @@ class SentenceDataset(Dataset):
                  sentence_length=32,
                  sentence_filter="lowercase",
                  vocab_size=27,
-                 normalize="L2"):
+                 normalize="L2",
+                 multicharacter_number=5):
         """
 
         Args:
@@ -194,6 +195,7 @@ class SentenceDataset(Dataset):
         self.which = which
         self.train = train
         self.train_mode = train_mode
+        self.multicharacter_number = multicharacter_number
         self.sentence_length = sentence_length
         self.filter_sentence = FILTERS[sentence_filter]()
         self.vocab_size = vocab_size
@@ -305,13 +307,19 @@ class SentenceDataset(Dataset):
 
         # Provide attention and label masks
         attention_mask = torch.ones([sen_len])
-        if self.train_mode != "full sequence":
-            mask_idx = np.random.randint(0, sen_len) if mask_idx < 0 else mask_idx
+        if self.train_mode.endswith("character"):
+            if self.train_mode == "multicharacter":
+                choices = min(self.multicharacter_number, int(sen_len / 3))
+                mask_idx = np.random.choice(sen_len, choices, replace=False)
+            elif self.train_mode == "single character":
+                mask_idx = np.random.randint(0, sen_len) if mask_idx < 0 else mask_idx # any negative number results in random mask index
             attention_mask[mask_idx] = 0
-            masked_gt = torch.zeros([sen_len]) - 100
+            masked_gt = torch.zeros([sen_len],dtype=torch.long) - 100
             masked_gt[mask_idx] = gt_idxs[mask_idx]  # everything else to not predict is -100
-        else:
+        elif self.train_mode == "full sequence":
             masked_gt = gt_idxs
+        else:
+            raise Exception(f"Unknown train_mode {self.train_mode}")
         masked_gt = masked_gt.type(torch.LongTensor)
 
         if self.which in ('Embeddings', 'Both'):  # Emb's pass the output distribution as well
