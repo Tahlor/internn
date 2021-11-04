@@ -16,6 +16,9 @@ def bert_config(config):
     config.mask_id = config.vocab_size
     config.vocab_size_extended = config.vocab_size + 2 # additional BERT tokens or something -- not totally clear
 
+    if config.TESTING:
+        config.workers = 1
+
     if not config.experiment_description:
         config.experiment_description = config.experiment_type
 

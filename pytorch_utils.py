@@ -79,7 +79,9 @@ def get_latest_file(folder, filename="*.pt"):
     else:
         return False
 
-def plot(losses, save=False):
+def plot(losses, save=False, ymax=.2):
+    ax = plt.gca()
+    ax.set_ylim([0, ymax])
     plt.plot(losses)
     if save:
         plt.savefig(save, dpi=300)

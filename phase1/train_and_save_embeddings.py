@@ -26,7 +26,7 @@ import logging
 logger = logging.getLogger("root."+__name__)
 
 ROOT = get_root("internn")
-logger.log(os.getcwd())
+logger.info(os.getcwd())
 os.chdir("..")
 sys.path.append(os.path.abspath("./data"))
 #import data.sen_loader

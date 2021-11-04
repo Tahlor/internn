@@ -1,0 +1,86 @@
+## Run vgg_logits / vgg_embeddings
+    # L2, (softmax-logits only), default
+## FSL
+## WANDB / Logging / graphing
+## Language only
+## Fix linear layer -- research / perform experiments
+### EMERGENCY -- Need to check accuracy on test set -- it might just be learning the bigger embeddings
+## Test both models on their language ability -- when masking letters
+
+# END TO END
+## Distortions?
+## other punctuation etc? Check with lower + upper case
+## Check baseline with only lowercase
+## Combine with digit MNIST
+
+TESTING: true
+
+# Paths
+folder_dependencies:
+    embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
+    VGG_model_path: 'data/embedding_datasets/embeddings_V4/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
+
+folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
+wandb: false
+
+# Training Settings
+## Experiment Definitions
+experiment_prefix: BERT_
+experiment_description: null
+experiment_type: vgg_embeddings # vgg_logits, vgg_embeddings, language_only - must refer to one of the subsections below
+
+embedding_norm: softmax #L2,softmax,default - take a norm of the logits
+train_mode: full sequence
+      # full sequence - assume the entire sequence is being predicted
+      # single character - mask / predict only one character
+      # multicharacter - mask some of the input, predict only the masked portions
+
+
+## Switch to other train mode
+train_mode2: multicharacter
+train_mode2_start: 2 # how many epoch(?) before starting
+train_mode2_probability: .5 # 0-1 : after train_mode2_start, how likely does it apply?
+
+vision_fine_tuning: false # end-to-end training
+vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning
+alphabet: abcdefghi jklmnopqrstuvwxyz
+sentence_length: 32
+attention_heads: 8
+embedding_dim: 512
+workers: 5
+
+# Logits
+vgg_logits:
+    loader_key: vgg_logits
+    embedding_layer: true # add an embedding layer to the front of BERT
+
+vgg_embeddings:
+    loader_key: data
+    embedding_layer: false #
+
+# Need to get language only to work -- possibly use different framework
+language_only:
+    # Mask some of the input, predict only the masked portions
+    loader_key: null
+    train_mode: input occlusion
+
+## Generic Hyperparameters
+epochs: 40
+max_updates: null
+starting_epoch: null
+batch_size: 192
+save_freq_epoch: 1
+#update_freq_time: 15 # How many minutes between epochs -- this is STUPID!!
+epoch_length: 100000
+
+## LR schedule
+lr: 1e-4     # LR
+patience: 30            # Every X steps, multiply LR by gamma
+decay_factor: .5    # LR decay rate
+steps_per_lr_update: 10 # Number of batches before LR check
+
+## Device
+device: gpu
+
+## Data
+corpus: books
