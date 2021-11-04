@@ -13,12 +13,12 @@
 ## Check baseline with only lowercase
 ## Combine with digit MNIST
 
-TESTING: false
+TESTING: true
 
 # Paths
 folder_dependencies:
     embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
-    VGG_model_folder: ''  # Where to load the VGG model from (if needed for tuning)
+    VGG_model_path: 'data/embedding_datasets/embeddings_V4/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
 
 folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
 wandb: false
@@ -29,16 +29,17 @@ experiment_prefix: BERT_
 experiment_description: null
 experiment_type: vgg_embeddings # vgg_logits, vgg_embeddings, language_only - must refer to one of the subsections below
 
-embedding_norm: default #L2,softmax,default - take a norm of the logits
+embedding_norm: softmax #L2,softmax,default - take a norm of the logits
 train_mode: full sequence
       # full sequence - assume the entire sequence is being predicted
       # single character - mask / predict only one character
       # multicharacter - not implemented; mask some of the input, predict only the masked portions
 
 
-## NOT IMPLEMENTED
-train_mode2: null
-train_mode2_start: 4 # how many epoch(?) before starting
+## Switch to other train mode
+train_mode2: multicharacter
+train_mode2_start: 2 # how many epoch(?) before starting
+train_mode2_probability: .5 # 0-1 : after train_mode2_start, how likely does it apply?
 
 vision_fine_tuning: false # end-to-end training
 vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning
@@ -64,7 +65,7 @@ language_only:
     train_mode: input occlusion
 
 ## Generic Hyperparameters
-epochs: 20
+epochs: 40
 max_updates: null
 starting_epoch: null
 batch_size: 192
