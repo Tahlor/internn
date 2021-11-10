@@ -33,15 +33,15 @@ embedding_norm: softmax #L2,softmax,default - take a norm of the logits
 train_mode: full sequence
       # full sequence - assume the entire sequence is being predicted
       # single character - mask / predict only one character
-      # multicharacter - not implemented; mask some of the input, predict only the masked portions
+      # multicharacter - mask some of the input, predict only the masked portions
 
 
 ## Switch to other train mode
-train_mode2: multicharacter
+train_mode2: null
 train_mode2_start: 2 # how many epoch(?) before starting
 train_mode2_probability: .5 # 0-1 : after train_mode2_start, how likely does it apply?
 
-vision_fine_tuning: false # end-to-end training
+vision_fine_tuning: true # end-to-end training
 vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning
 alphabet: abcdefghi jklmnopqrstuvwxyz
 sentence_length: 32

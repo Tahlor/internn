@@ -10,7 +10,12 @@ Original file is located at
 ### IMAGES NOT SAVED IN LOADER -- ugh
 ### embedding vs logit version
 ## wandb......
-
+## LR wrt batch size
+## WHY isn't the language model that good?
+## What is going on with do nt?
+## Fix folder structure
+## Sbatcher
+## Get resume to work smoothly
 
 """
 from lm_utils import *
@@ -81,12 +86,12 @@ train_loader = torch.utils.data.DataLoader(train_dataset,
                                            num_workers=config.workers)
 
 
-sample = next(iter(train_dataset))
-printR("Batch Data Shape", sample["data"].squeeze(0).shape)
-printR("Num Batch Labels", sample["gt_one_hot"].squeeze(0).shape)
-printR("Output shape", sample["vgg_logits"].shape)
-printR("Sen Lengths", sample["length"])
-printR("GT One Hot", get_text(sample["gt_one_hot"]))
+#sample = next(iter(train_dataset))
+# printR("Batch Data Shape", sample["data"].squeeze(0).shape)
+# printR("Num Batch Labels", sample["gt_one_hot"].squeeze(0).shape)
+# printR("Output shape", sample["vgg_logits"].shape)
+# printR("Sen Lengths", sample["length"])
+# printR("GT One Hot", get_text(sample["gt_one_hot"]))
 
 model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
                                    hidden_size=config.embedding_dim,
@@ -108,6 +113,7 @@ if config.vision_fine_tuning:
     import VGG
     vision_model = VGG.VGG_embedding().to(config.device)
     VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
+
 
 # 51258938
 #  2083333
@@ -257,8 +263,9 @@ def run_test_set():
     avg_cer = np.average(cer)
     print(f"TEST CER: {avg_cer:0.3f}")
     print(f"TEST loss: {avg_loss:0.3f}")
-    RESULTS["test_loss"].append(avg_cer)
-    RESULTS["test_CER"].append(avg_loss)
+    RESULTS["test_loss"].append(avg_loss)
+    RESULTS["test_CER"].append(avg_cer)
+    plot(RESULTS["test_CER"], MODEL_PATH / "TEST_CER.png")
     return avg_loss, avg_cer
 
 def check_epoch():
@@ -267,6 +274,8 @@ def check_epoch():
         optimizer.add_param_group({'params': vision_model.parameters()})
         config.batch_size = int(config.batch_size/2)
         VISION_MODEL_ACTIVE = True
+        train_dataset.which = "Images"
+        train_dataset.load_images()
 
 for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):
     check_epoch()

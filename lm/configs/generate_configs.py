@@ -113,7 +113,7 @@ if __name__=="__main__":
               config_root="./configs",
               sh_proj_root="./results",
               log_root=None,
-              hardware_dict={"threads":7, "time":"4:00:00", "gpu":"pascal"},
+              hardware_dict={"threads":7, "time":"7:00:00", "gpu":"pascal"},
               use_experiment_folders=True)
 
     # Make scripts executable

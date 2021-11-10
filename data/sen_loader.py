@@ -191,6 +191,8 @@ class SentenceDataset(Dataset):
             sentence_filter:
             vocab_size:
             normalize (str): default, L2, softmax
+        which = "Both"  is not implemented
+
         """
         self.which = which
         self.train = train
@@ -201,7 +203,7 @@ class SentenceDataset(Dataset):
         self.vocab_size = vocab_size
         self.normalize_func = NORMALIZE_FUNC[normalize]
         assert train_mode in ["full sequence", "single character", "multicharacter"]
-        assert which in ["Images", "Embeddings"]
+        assert which in ["Images", "Embeddings", "Both"]
 
         self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
         self.sentence_data_train, self.sentence_data_test = datasets.load_dataset('bookcorpus', split=['train[:85%]', 'train[85%:]'])
@@ -209,13 +211,16 @@ class SentenceDataset(Dataset):
         if self.train:
             self.set_train_mode()
 
-    def load_images(self, train=True):
-        if self.which == 'Images':
+    def load_images(self, train=True, which=""):
+        if not which:
+            which = self.which
+
+        if which == 'Images':
             if train:
                 self.images_loaded = self.train_images_loaded
             else:
                 self.images_loaded = self.test_images_loaded
-        elif self.which == 'Embeddings':
+        elif which == 'Embeddings':
             if train:
                 self.emb_loaded = self.train_emb_loaded
             else:
@@ -250,6 +255,7 @@ class SentenceDataset(Dataset):
         self.sentence_data = self.sentence_data_test
         self.load_images(train=False)
         self.len = len(self.sentence_data)
+        self.train_mode = "full sequence"
 
     def __getitem__(self, idx, mask_idx=-1):
         """ Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
@@ -274,6 +280,8 @@ class SentenceDataset(Dataset):
         #     print(sentence)
 
         x = list()
+        embeddings = list()
+        images = list()
         gt_idxs = list()
         vgg_logit = list()
         data, embedding, image = None, None, None
@@ -282,21 +290,23 @@ class SentenceDataset(Dataset):
         for char in sentence:
             char = str.lower(char)
             char_idx = self.letter_to_num(char)
-            if self.which == 'Images':
-                data = self.images_loaded.sample(char_idx)
-            elif self.which == 'Embeddings':
-                data = self.emb_loaded.sample(char_idx)
-                vgg_logit.append(data[2])
-
-            x.append(data[0])  # list of tuples of images [0], with labels [1]
+            if self.which in ['Images', "Both"]:
+                image = self.images_loaded.sample(char_idx)
+                images.append(image[0])  # list of tuples of images [0], with labels [1]
+            elif self.which in ['Embeddings', "Both"]:
+                embedding = self.emb_loaded.sample(char_idx)
+                vgg_logit.append(embedding[2])
+                embeddings.append(data[0])  # list of tuples of images [0], with labels [1]
             gt_idxs.append(char_idx)
 
         # Convert into a tensor for each list of tensors and return them in a pair
-        x = torch.stack(x)
+        if images:
+            images = torch.stack(images)
+        if embeddings:
+            embeddings = torch.stack(embeddings)
 
         if self.which in ('Images', 'Both'): # Embed labels are tensors, Img labels are not.
             gt_idxs = torch.tensor(gt_idxs)
-            image = x
         else:
             if gt_idxs and isinstance(gt_idxs[0], int):
                 gt_idxs = torch.tensor(gt_idxs)
@@ -325,13 +335,12 @@ class SentenceDataset(Dataset):
         if self.which in ('Embeddings', 'Both'):  # Emb's pass the output distribution as well
             vgg_logit = torch.stack(vgg_logit)
             vgg_text = get_text(vgg_logit)
-            x = self.normalize_func(x, dim=-1)
-            embedding = x
+            embeddings = self.normalize_func(embeddings, dim=-1)
             vgg_logit = self.normalize_func(vgg_logit, dim=-1)
 
-        return {"data":x,
-                "embedding":embedding,
-                "image": image,
+        return {"data":embeddings if self.which in ('Embeddings', 'Both') else images,
+                "embedding":embeddings,
+                "image": images,
                 "gt_one_hot":gt_one_hot,
                 "length":sen_len,
                 "attention_mask": attention_mask,
@@ -510,60 +519,17 @@ def collate_fn_embeddings(data):
                 "attention_mask": 0,
                 "data": 0,
                 "gt_idxs": 0,
-                "vgg_logits": 0}
+                "vgg_logits": 0,
+                "image": -0.4242}
 
     for data_key in keys:
         batch_data = [b[data_key] for b in data]
-        if data_key in padding.keys():
+        print(data_key)
+        if data_key in padding.keys() and batch_data:
+            print(data_key)
             batch_data = torch.nn.utils.rnn.pad_sequence(batch_data, batch_first=True, padding_value=padding[data_key])
         output_dict[data_key] = batch_data
     return output_dict
-
-
-def collate_fn_images(data):
-    """
-    Args:
-        IF Embeddings ->
-            data[0] => data["data"] char_embedding
-            data[1] => data["gt_one_hot"] label
-            data[2] => data["length"]
-            data (dict): is a list (len is the batch size) of tuples with (char_embedding, label, length),
-            emb: is a tensor of shape([?-32, 512])
-            label: is a tensor of shape([?-31, 27]) (one hot encoded)
-            length: num of chars in the sentence
-        IF Images ->
-            data: is a list of tuples with (img, label, length)
-            label: is a tensor of shape([?-31, 27]) (one hot encoded)
-            length: num of chars in the sentence
-
-
-    """
-    max_len = 32
-    num_outputs = 27
-    sen_len = data["data"][0].size(0)
-    num_batches = len(data)
-    imgs, labels, lengths = zip(*data)
-    new_imgs = []
-    for batch_idx in range(num_batches):
-        j = imgs[batch_idx].size(0)
-        if j == max_len:
-            new_imgs.append(imgs[batch_idx])
-            continue
-        curr_sen_of_imgs = torch.cat((imgs[batch_idx], torch.full((max_len - j, 1, 28, 28), fill_value=-0.4242)))
-        new_imgs.append(curr_sen_of_imgs)
-
-    assert(new_imgs[0].shape[0] == 32)
-
-    new_labels = []
-    for batch_idx in range(num_batches):
-        j = imgs[batch_idx].size(0)
-        curr_label = torch.cat((labels[batch_idx], torch.zeros(max_len - j, num_outputs)))
-        new_labels.append(curr_label)
-
-    assert(new_labels[0].shape[0] == 32)
-
-    return new_imgs, new_labels, lengths
-
 
 def createSentenceDataset(sen_list_path,
                           embedding_sampler_path_train,
