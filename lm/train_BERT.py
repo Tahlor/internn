@@ -174,25 +174,23 @@ run_one = run_one_batch_lm_only if "language_only" in config.experiment_type els
 losses = []
 
 #### LOAD THE OLD MODELS
-if "lm_model_path" not in config.folder_dependencies:
-    config.folder_dependencies.lm_model_path = SAVE_PATH = incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt", incrementer=False)
-else:
+if "lm_model_path" in config.folder_dependencies:
     model.load_state_dict(torch.load(config.folder_dependencies.lm_model_path))
-
-if "finetuned_cnn_path" not in config.folder_dependencies:
-    config.folder_dependencies.finetuned_cnn_path = SAVE_PATH_VISION = incrementer(MODEL_PATH, EXPERIMENT_NAME + "_CNN.pt")
-else:
+if "finetuned_cnn_path" in config.folder_dependencies:
     vision_model.load_state_dict(torch.load(config.folder_dependencies.finetuned_cnn_path))
 
-if "results_path" not in config.folder_dependencies:
-    config.folder_dependencies.finetuned_cnn_path = RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
+if "results_path" in config.folder_dependencies:
+    RESULTS = np.load(config.folder_dependencies.finetuned_cnn_path, allow_pickle=True)
+else:
     RESULTS = edict({})
     RESULTS["train_loss"] = losses
     RESULTS["train_CER"] = cer_list
     RESULTS["test_loss"] = []
     RESULTS["test_CER"] = []
-else:
-    RESULTS = np.load(config.folder_dependencies.finetuned_cnn_path, allow_pickle=True)
+
+config.folder_dependencies.lm_model_path = SAVE_PATH = incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt", incrementer=False)
+config.folder_dependencies.finetuned_cnn_path = SAVE_PATH_VISION = incrementer(MODEL_PATH, EXPERIMENT_NAME + "_CNN.pt", incrementer=False)
+config.folder_dependencies.finetuned_cnn_path = RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
 
 def run_epoch():
     global losses, STEP_GLOBAL
