@@ -58,12 +58,16 @@ VGG_MODEL_PATH = ROOT / config.folder_dependencies.VGG_model_path
 # folder management
 # Get the config path relative to results/configs folder
 configs_path = Path(get_max_root(["results","configs"],config_path))
-config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", str(config_path.resolve().relative_to(configs_path)))
+config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", str(config_path.resolve().relative_to(configs_path))).parent
 exp = "RUN" if not config.TESTING else "RUN_TESTING"
 
 # incrementer
 config.folder_outputs = incrementer(config.folder_outputs, exp, make_new_folder=True)
+
+## FIX - should write out new yaml
 #shutil.copy(config_path, config.folder_outputs)
+with (config.folder_outputs / config_path.name).open(mode='w') as f:
+    yaml.dump(config, f, default_flow_style=False, sort_keys=False)
 
 MODEL_PATH = ROOT / "lm" / config.folder_outputs
 text = config.alphabet
