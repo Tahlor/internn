@@ -519,7 +519,7 @@ def collate_fn_embeddings(data):
     output_dict = {}
     padding = {"masked_gt": -100,
                 "attention_mask": 0,
-                "data": 0,
+                #"data": 0,
                 "gt_idxs": 0,
                 "vgg_logits": 0,
                 "image": -0.4242}
