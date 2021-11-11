@@ -9,7 +9,7 @@ sys.path.append(str(LM / "slurm"))
 import gen
 from subprocess import Popen
 
-baseline_configs = ["01_master.yaml"]
+baseline_configs = ["00_master.yaml"]
 baseline_configs = [ (LM / "configs") / b for b in baseline_configs]
 variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
                   "embedding_norm":["softmax"],
@@ -54,6 +54,7 @@ def get_int(s):
 
 def replace_config(yaml_path, variation_list, new_folder="variants"):
     yaml_path = Path(yaml_path)
+
     yaml_file = check_yaml(yaml.load(Path(yaml_path).read_text(), Loader=yaml.SafeLoader))
     name = yaml_path.stem
     parent = yaml_path.parent
@@ -80,7 +81,7 @@ def replace_config(yaml_path, variation_list, new_folder="variants"):
         new_yaml_file["batch_size"] = 384
 
         # Replace experiment output folder
-        new_yaml_file["folder_outputs"] = yaml_file["folder_outputs"].replace("*EXPERIMENT*", f"variants/{output_file}")
+        new_yaml_file["folder_outputs"] = yaml_file["folder_outputs"].replace("*EXPERIMENT*", f"{str(output_dir.relative_to(parent))}/{output_file}")
 
         #with open((parent / name).with_suffix(ext), "w") as f:
         with (output_dir / (output_file + ext)).open(mode='w') as f:

@@ -28,7 +28,7 @@ def load_model(path, model, optimizer=None, scheduler=None):
             "loss":loss,
             "scheduler":scheduler}
 
-def incrementer(root, base, make_new_folder=False, start_over=False):
+def incrementer(root, base, make_new_folder=False, start_over=False, incrementer=True):
     """
 
     Args:
@@ -39,6 +39,8 @@ def incrementer(root, base, make_new_folder=False, start_over=False):
     Returns:
 
     """
+    if not incrementer:
+        return Path(root) / base
     def _new_folder():
         increment_string = f"_{increment:03d}" if increment > 0 else ""
         new_folder = Path(root / (base.stem + increment_string + base.suffix))

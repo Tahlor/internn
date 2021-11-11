@@ -34,7 +34,6 @@ from transformers import AdamW
 import process_config_BERT
 import matplotlib.pyplot as plt
 
-RESULTS = edict({})
 VISION_MODEL_ACTIVE = False
 
 def printR(key, value):
@@ -63,7 +62,8 @@ exp = "RUN" if not config.TESTING else "RUN_TESTING"
 
 # incrementer
 config.folder_outputs = incrementer(config.folder_outputs, exp, make_new_folder=True)
-shutil.copy(config_path, config.folder_outputs)
+#shutil.copy(config_path, config.folder_outputs)
+
 MODEL_PATH = ROOT / "lm" / config.folder_outputs
 text = config.alphabet
 corpus = [char for char in text]
@@ -172,13 +172,25 @@ def run_one_batch_lm_only(sample):
 
 run_one = run_one_batch_lm_only if "language_only" in config.experiment_type else run_one_batch_default
 losses = []
-SAVE_PATH = Path(MODEL_PATH) / (EXPERIMENT_NAME + ".pt") #incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt")
-SAVE_PATH_VISION = Path(MODEL_PATH) / (EXPERIMENT_NAME + "_CNN.pt")
-RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
-RESULTS["train_loss"] = losses
-RESULTS["train_CER"] = cer_list
-RESULTS["test_loss"] = []
-RESULTS["test_CER"] = []
+
+#### LOAD THE OLD MODELS
+if "lm_model_path" in config.folder_dependencies:
+    model.load_state_dict(torch.load(config.folder_dependencies.lm_model_path))
+if "finetuned_cnn_path" in config.folder_dependencies:
+    vision_model.load_state_dict(torch.load(config.folder_dependencies.finetuned_cnn_path))
+
+if "results_path" in config.folder_dependencies:
+    RESULTS = np.load(config.folder_dependencies.finetuned_cnn_path, allow_pickle=True)
+else:
+    RESULTS = edict({})
+    RESULTS["train_loss"] = losses
+    RESULTS["train_CER"] = cer_list
+    RESULTS["test_loss"] = []
+    RESULTS["test_CER"] = []
+
+config.folder_dependencies.lm_model_path = SAVE_PATH = incrementer(MODEL_PATH, EXPERIMENT_NAME + ".pt", incrementer=False)
+config.folder_dependencies.finetuned_cnn_path = SAVE_PATH_VISION = incrementer(MODEL_PATH, EXPERIMENT_NAME + "_CNN.pt", incrementer=False)
+config.folder_dependencies.finetuned_cnn_path = RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
 
 def run_epoch():
     global losses, STEP_GLOBAL
