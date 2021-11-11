@@ -68,7 +68,7 @@ language_only:
 epochs: 40
 max_updates: null
 starting_epoch: null
-batch_size: 512
+batch_size: 128
 save_freq_epoch: 1
 #update_freq_time: 15 # How many minutes between epochs -- this is STUPID!!
 epoch_length: 100000
