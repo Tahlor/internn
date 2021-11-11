@@ -58,7 +58,7 @@ VGG_MODEL_PATH = ROOT / config.folder_dependencies.VGG_model_path
 # folder management
 # Get the config path relative to results/configs folder
 configs_path = Path(get_max_root(["results","configs"],config_path))
-config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", str(config_path.resolve().relative_to(configs_path))).parent
+config.folder_outputs = config.folder_outputs.replace("*EXPERIMENT*", str(config_path.resolve().relative_to(configs_path).parent))
 exp = "RUN" if not config.TESTING else "RUN_TESTING"
 
 # incrementer
