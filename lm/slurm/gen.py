@@ -143,7 +143,12 @@ which python
             # Define paths
             fsl_config_path = Path(config_root_REFERENCE) / config_path.relative_to(Path(config_root_SEARCH)) # FSL
             subfolders = config_path.relative_to(p)  # = 'c/d'
-            sh_path = Path(sh_proj_root / subfolders.parent / config_path.with_suffix('.sh').name) # where the .sh is saved, LOCAL
+            # Create a subfolder named after the config
+            if config_path.parent.stem != subfolders.parent.stem:
+                sh_path = Path(sh_proj_root / subfolders.parent / config_path.with_suffix('.sh').name) # where the .sh is saved, LOCAL
+            else:
+                sh_path = Path(sh_proj_root / config_path.with_suffix('.sh').name)  # where the .sh is saved, LOCAL
+
             log_path = Path(log_root / subfolders.parent / ('log_' + config_path.with_suffix('.slurm').name)) # log path, FSL
             if self.use_experiment_folders:
                 experiment_folder = Path(sh_proj_root / subfolders.parent / config_path.stem); experiment_folder.mkdir(parents=True,exist_ok=True)
