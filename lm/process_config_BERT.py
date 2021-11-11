@@ -38,13 +38,15 @@ def bert_config(config):
         # Never use an embedding layer with the embedding
         config.embedding_layer_with_logits = None
 
-
     ## LOGITS
     elif config.experiment_type == "vgg_logits":
         pass
 
     else:
         raise Exception(f"What is {config.experiment_type} supposed to be?")
+    config.vgg_embeddings.loader_key = "embedding"
+    config.vgg_logits.loader_key = "vgg_logits"
+
 
     """
     sep_token (separator token, used when building a sequence from multiple sequences, e.g. two sequences for sequence classification or for a text and a question for question answering
