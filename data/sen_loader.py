@@ -215,12 +215,12 @@ class SentenceDataset(Dataset):
         if not which:
             which = self.which
 
-        if which == 'Images':
+        if which in ['Images', "Both"]:
             if train:
                 self.images_loaded = self.train_images_loaded
             else:
                 self.images_loaded = self.test_images_loaded
-        elif which == 'Embeddings':
+        elif which in ['Embeddings', "Both"]:
             if train:
                 self.emb_loaded = self.train_emb_loaded
             else:
