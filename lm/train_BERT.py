@@ -113,7 +113,9 @@ if config.vision_fine_tuning:
     sys.path.append(str(ROOT / "models"))
     import VGG
     vision_model = VGG.VGG_embedding().to(config.device)
-    VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
+    #VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
+    load_model(VGG_MODEL_PATH, vision_model, optimizer=optimizer, scheduler=scheduler)
+
 
 
 # 51258938
@@ -176,7 +178,7 @@ losses = []
 
 #### LOAD THE OLD MODELS
 if "lm_model_path" in config.folder_dependencies:
-    model.load_state_dict(torch.load(config.folder_dependencies.lm_model_path))
+    load_model(config.folder_dependencies.lm_model_path, model, optimizer=optimizer, scheduler=scheduler)
 if "finetuned_cnn_path" in config.folder_dependencies:
     vision_model.load_state_dict(torch.load(config.folder_dependencies.finetuned_cnn_path))
 
