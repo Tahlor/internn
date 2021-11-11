@@ -293,7 +293,7 @@ class SentenceDataset(Dataset):
             if self.which in ['Images', "Both"]:
                 image = self.images_loaded.sample(char_idx)
                 t = Tensor(image[0])
-                print(t)
+                #print(t)
                 images.append(t)  # list of tuples of images [0], with labels [1]
             elif self.which in ['Embeddings', "Both"]:
                 embedding = self.emb_loaded.sample(char_idx)
@@ -528,7 +528,8 @@ def collate_fn_embeddings(data):
         batch_data = [b[data_key] for b in data]
         if data_key in padding.keys() and batch_data:
             print(data_key, type(batch_data))
-            print(batch_data)
+            print(batch_data[0])
+            input()
             batch_data = torch.nn.utils.rnn.pad_sequence(batch_data, batch_first=True, padding_value=padding[data_key])
         output_dict[data_key] = batch_data
     return output_dict
