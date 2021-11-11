@@ -296,7 +296,7 @@ class SentenceDataset(Dataset):
             elif self.which in ['Embeddings', "Both"]:
                 embedding = self.emb_loaded.sample(char_idx)
                 vgg_logit.append(embedding[2])
-                embeddings.append(data[0])  # list of tuples of images [0], with labels [1]
+                embeddings.append(embedding[0])  # list of tuples of images [0], with labels [1]
             gt_idxs.append(char_idx)
 
         # Convert into a tensor for each list of tensors and return them in a pair
