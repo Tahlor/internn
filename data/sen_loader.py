@@ -292,7 +292,9 @@ class SentenceDataset(Dataset):
             char_idx = self.letter_to_num(char)
             if self.which in ['Images', "Both"]:
                 image = self.images_loaded.sample(char_idx)
-                images.append(image[0])  # list of tuples of images [0], with labels [1]
+                t = Tensor(image[0])
+                print(t)
+                images.append(t)  # list of tuples of images [0], with labels [1]
             elif self.which in ['Embeddings', "Both"]:
                 embedding = self.emb_loaded.sample(char_idx)
                 vgg_logit.append(embedding[2])
