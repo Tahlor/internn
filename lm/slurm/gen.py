@@ -147,6 +147,7 @@ which python
             if config_path.parent.stem != subfolders.parent.stem:
                 sh_path = Path(sh_proj_root / subfolders.parent / config_path.with_suffix('.sh').name) # where the .sh is saved, LOCAL
             else:
+                self.use_experiment_folders = False
                 sh_path = Path(sh_proj_root / config_path.with_suffix('.sh').name)  # where the .sh is saved, LOCAL
 
             log_path = Path(log_root / subfolders.parent / ('log_' + config_path.with_suffix('.slurm').name)) # log path, FSL
