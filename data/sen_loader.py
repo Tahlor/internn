@@ -526,9 +526,9 @@ def collate_fn_embeddings(data):
 
     for data_key in keys:
         batch_data = [b[data_key] for b in data]
-        print(data_key)
         if data_key in padding.keys() and batch_data:
             print(data_key, type(batch_data))
+            print(batch_data)
             batch_data = torch.nn.utils.rnn.pad_sequence(batch_data, batch_first=True, padding_value=padding[data_key])
         output_dict[data_key] = batch_data
     return output_dict
