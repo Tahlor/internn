@@ -220,7 +220,8 @@ class SentenceDataset(Dataset):
                 self.images_loaded = self.train_images_loaded
             else:
                 self.images_loaded = self.test_images_loaded
-        elif which in ['Embeddings', "Both"]:
+
+        if which in ['Embeddings', "Both"]:
             if train:
                 self.emb_loaded = self.train_emb_loaded
             else:
