@@ -36,6 +36,7 @@ import matplotlib.pyplot as plt
 
 VISION_MODEL_ACTIVE = False
 
+RESULTS = edict({})
 def printR(key, value):
     print(key, value)
     RESULTS[key] = value
@@ -180,9 +181,8 @@ if "finetuned_cnn_path" in config.folder_dependencies:
     vision_model.load_state_dict(torch.load(config.folder_dependencies.finetuned_cnn_path))
 
 if "results_path" in config.folder_dependencies:
-    RESULTS = np.load(config.folder_dependencies.finetuned_cnn_path, allow_pickle=True)
+    RESULTS = np.load(config.folder_dependencies.finetuned_cnn_path, allow_pickle=True).item()
 else:
-    RESULTS = edict({})
     RESULTS["train_loss"] = losses
     RESULTS["train_CER"] = cer_list
     RESULTS["test_loss"] = []

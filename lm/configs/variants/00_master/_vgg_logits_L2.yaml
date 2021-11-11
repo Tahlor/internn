@@ -1,4 +1,4 @@
-TESTING: true
+TESTING: false
 folder_dependencies:
   embedding_dataset_folder: data/embedding_datasets/embeddings_V4
   VGG_model_folder: ''
