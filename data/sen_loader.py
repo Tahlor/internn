@@ -293,20 +293,22 @@ class SentenceDataset(Dataset):
             char_idx = self.letter_to_num(char)
             if self.which in ['Images', "Both"]:
                 image = self.images_loaded.sample(char_idx)
-                t = Tensor(image[0])
-                print("HERE", t[0])
+                t = torch.tensor(image[0])
+                #print("HERE", t[0])
                 images.append(t)  # list of tuples of images [0], with labels [1]
-            elif self.which in ['Embeddings', "Both"]:
+            if self.which in ['Embeddings', "Both"]:
                 embedding = self.emb_loaded.sample(char_idx)
                 vgg_logit.append(embedding[2])
                 embeddings.append(embedding[0])  # list of tuples of images [0], with labels [1]
             gt_idxs.append(char_idx)
 
         # Convert into a tensor for each list of tensors and return them in a pair
-        if images:
+        if len(images):
             images = torch.stack(images)
-        if embeddings:
+        if len(embeddings):
+            #assert isinstance(embeddings, list)
             embeddings = torch.stack(embeddings)
+            #assert torch.is_tensor(embeddings)
 
         if self.which in ('Images', 'Both'): # Embed labels are tensors, Img labels are not.
             gt_idxs = torch.tensor(gt_idxs)
@@ -339,7 +341,7 @@ class SentenceDataset(Dataset):
             vgg_logit = torch.stack(vgg_logit)
             vgg_text = get_text(vgg_logit)
             embeddings = self.normalize_func(embeddings, dim=-1)
-            vgg_logit = self.normalize_func(vgg_logit, dim=-1)
+            vgg_logit  = self.normalize_func(vgg_logit, dim=-1)
 
         return {"data":embeddings if self.which in ('Embeddings', 'Both') else images,
                 "embedding":embeddings,
@@ -523,13 +525,13 @@ def collate_fn_embeddings(data):
                 #"data": 0,
                 "gt_idxs": 0,
                 "vgg_logits": 0,
+                "embedding":0,
                 "image": -0.4242}
 
     for data_key in keys:
         batch_data = [b[data_key] for b in data]
-        if data_key in padding.keys() and batch_data:
-            print(data_key, type(batch_data))
-            print(batch_data[0])
+        if data_key in padding.keys() and batch_data and torch.is_tensor(batch_data[0]):
+            #print(data_key, type(batch_data[0]))
             batch_data = torch.nn.utils.rnn.pad_sequence(batch_data, batch_first=True, padding_value=padding[data_key])
         output_dict[data_key] = batch_data
     return output_dict

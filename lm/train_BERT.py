@@ -77,7 +77,6 @@ train_dataset = SentenceDataset(PATH=LOADER_PATH / 'train_test_sentenceDataset.p
                                 sentence_filter="lowercase",
                                 vocab_size=config.vocab_size,
                                 normalize=config.embedding_norm,
-
                                 )
 
 train_loader = torch.utils.data.DataLoader(train_dataset,
@@ -85,7 +84,6 @@ train_loader = torch.utils.data.DataLoader(train_dataset,
                                            shuffle=True,
                                            collate_fn=collate_fn_embeddings,
                                            num_workers=config.workers)
-
 
 #sample = next(iter(train_dataset))
 # printR("Batch Data Shape", sample["data"].squeeze(0).shape)
@@ -113,8 +111,8 @@ if config.vision_fine_tuning:
     sys.path.append(str(ROOT / "models"))
     import VGG
     vision_model = VGG.VGG_embedding().to(config.device)
-    #VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
-    load_model(VGG_MODEL_PATH, vision_model, optimizer=optimizer, scheduler=scheduler)
+    VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
+    #load_model(VGG_MODEL_PATH, vision_model, optimizer=optimizer, scheduler=scheduler)
 
 
 
@@ -152,9 +150,16 @@ printR("INITIAL LR", lr)
 
 def run_one_batch_default(sample):
     if VISION_MODEL_ACTIVE:
-        x, y_truth, attention_mask = sample["image"].to(config.device), sample["masked_gt"].to(
+        x, y_truth, attention_mask = sample["image"], sample["masked_gt"].to(
         config.device), sample["attention_mask"].to(config.device)
-        x = vision_model(x)
+        x = sample["image"].reshape([-1, *sample["image"].shape[2:]])
+        x = x.to(config.device)
+        if "embedding" in config.experiment.loader_key:
+            x = vision_model.get_embedding(x)
+        else:
+            x = vision_model(x)
+        x = x.reshape(*sample["image"].shape[:2], -1)
+
     else:
         x, y_truth, attention_mask = sample[config.experiment.loader_key].to(config.device), sample["masked_gt"].to(
         config.device), sample["attention_mask"].to(config.device)
@@ -283,12 +288,21 @@ def run_test_set():
     return avg_loss, avg_cer
 
 def check_epoch():
-    global VISION_MODEL_ACTIVE
+    global VISION_MODEL_ACTIVE, train_loader
     if config.vision_fine_tuning and config.vision_fine_tuning_start == epoch:
         optimizer.add_param_group({'params': vision_model.parameters()})
-        config.batch_size = int(config.batch_size/2)
+        config.batch_size = int(config.batch_size/config.sentence_length)
         VISION_MODEL_ACTIVE = True
-        train_dataset.which = "Images"
+        train_dataset.which = "Both"
+        train_loader = torch.utils.data.DataLoader(train_dataset,
+                                                   batch_size=config.batch_size,
+                                                   shuffle=True,
+                                                   collate_fn=collate_fn_embeddings,
+                                                   num_workers=config.workers)
+
+        for g in optimizer.param_groups:
+            g['lr'] = g['lr'] / config.sentence_length
+
         train_dataset.load_images()
 
 for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):

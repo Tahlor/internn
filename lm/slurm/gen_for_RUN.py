@@ -8,7 +8,7 @@ if __name__=="__main__":
               environment=None,
               proj_dir=Path("./internn/lm"),
               cd_dir=None,
-              python_script_path="train_BERT.py",
+              python_script_path="train_BERTembe.py",
               config_root="./results",
               sh_proj_root="./results",
               log_root=None,

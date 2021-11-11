@@ -22,7 +22,7 @@ vgg_logits:
   loader_key: vgg_logits
   embedding_layer: true
 vgg_embeddings:
-  loader_key: data
+  loader_key: embedding
   embedding_layer: false
 language_only:
   loader_key: null

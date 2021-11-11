@@ -37,12 +37,12 @@ train_mode: full sequence
 
 
 ## Switch to other train mode
-train_mode2: multicharacter
+train_mode2: null
 train_mode2_start: 2 # how many epoch(?) before starting
 train_mode2_probability: .5 # 0-1 : after train_mode2_start, how likely does it apply?
 
-vision_fine_tuning: false # end-to-end training
-vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning
+vision_fine_tuning: true # end-to-end training
+vision_fine_tuning_start: 10 # how many epochs(?) before starting the fine-tuning
 alphabet: abcdefghi jklmnopqrstuvwxyz
 sentence_length: 32
 attention_heads: 8
@@ -68,7 +68,7 @@ language_only:
 epochs: 40
 max_updates: null
 starting_epoch: null
-batch_size: 192
+batch_size: 1024
 save_freq_epoch: 1
 #update_freq_time: 15 # How many minutes between epochs -- this is STUPID!!
 epoch_length: 100000

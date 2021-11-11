@@ -55,7 +55,7 @@ vgg_logits:
     embedding_layer: true # add an embedding layer to the front of BERT
 
 vgg_embeddings:
-    loader_key: data
+    loader_key: embedding
     embedding_layer: false #
 
 # Need to get language only to work -- possibly use different framework
@@ -68,7 +68,7 @@ language_only:
 epochs: 40
 max_updates: null
 starting_epoch: null
-batch_size: 192
+batch_size: 1024
 save_freq_epoch: 1
 #update_freq_time: 15 # How many minutes between epochs -- this is STUPID!!
 epoch_length: 100000

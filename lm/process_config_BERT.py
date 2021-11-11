@@ -1,5 +1,8 @@
 import torch
 from general_tools.utils import get_root
+
+import internn_utils
+
 ROOT = get_root("internn")
 import sys
 sys.path.append(ROOT)
@@ -15,6 +18,9 @@ def bert_config(config):
     config.vocab_size = len(config.alphabet)
     config.mask_id = config.vocab_size
     config.vocab_size_extended = config.vocab_size + 2 # additional BERT tokens or something -- not totally clear
+    if internn_utils.is_galois():
+        config.batch_size = 192
+    config.lr = config.lr * config.batch_size / 192
 
     if config.TESTING:
         config.workers = 1
