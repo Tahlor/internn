@@ -34,6 +34,8 @@ from transformers import AdamW
 import process_config_BERT
 import matplotlib.pyplot as plt
 
+logger = logging.getLogger("root."+__name__)
+
 VISION_MODEL_ACTIVE = False
 
 RESULTS = edict({})
@@ -42,7 +44,7 @@ def printR(key, value):
     RESULTS[key] = value
 
 config_path = Path(sys.argv[1])
-print("ARG: ", config_path)
+logger.info(("ARG: ", config_path))
 
 config = process_config_BERT.bert_config(process_config(config_path))
 
@@ -107,17 +109,10 @@ parameters = sum(p.numel() for p in model.parameters() if p.requires_grad)
 printR(f"PARAMETERS", parameters)
 embedding = nn.Linear(config.vocab_size, config.embedding_dim).to(config.device) if config.experiment.embedding_layer else None
 all_parameters = [{'params': model.parameters()}]
+
 if embedding:
     printR(f"Embedding parameters", sum(p.numel() for p in embedding.parameters() if p.requires_grad))
     all_parameters.append({'params': embedding.parameters()})
-
-if config.vision_fine_tuning:
-    sys.path.append(str(ROOT / "models"))
-    import VGG
-    vision_model = VGG.VGG_embedding().to(config.device)
-    VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
-    #load_model(VGG_MODEL_PATH, vision_model, optimizer=optimizer, scheduler=scheduler)
-
 
 
 # 51258938
@@ -128,7 +123,7 @@ scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.patience, factor
 
 latest = get_latest_file(config.folder_outputs, EXPERIMENT_NAME)
 if latest:
-    print(f"Loading {latest}")
+    logger.info(f"Loading {latest}")
     old_state = load_model(latest, model, optimizer, scheduler)
     config.starting_epoch, loss = old_state["epoch"], old_state["loss"]
 
@@ -205,7 +200,7 @@ config.folder_dependencies.finetuned_cnn_path = RESULTS_NPY_PATH = SAVE_PATH.wit
 
 def run_epoch():
     global losses, STEP_GLOBAL
-    print("epoch", epoch)
+    logger.info(("epoch", epoch))
     train_dataset.set_train_mode()
     model.train()
     losses_10 = []
@@ -232,13 +227,13 @@ def run_epoch():
             l = np.average(losses_10)
             losses.append(l)
             losses_10 = []
-            print("STEP", STEP_GLOBAL, l)
+            logger.info(("STEP", STEP_GLOBAL, l))
             cer_list.append(cer_calculation(sample,output))
-            print("CER", cer_list[-1])
+            logger.info(("CER", cer_list[-1]))
             scheduler.step(l)
             lr = optimizer.param_groups[0]['lr']
             if lr < config["lr"]:
-                print("New LR:", lr)
+                logger.info(("New LR:", lr))
                 config["lr"] = lr
             if config.wandb:
                 wandb.log({"loss": l, "epoch": epoch, "step": ii, "cer":cer_list[-1]}, step=STEP_GLOBAL, commit=False)
@@ -281,21 +276,33 @@ def run_test_set():
                 break
 
     except Exception as e:
-        print(e)
+        logger.info((e)
     avg_loss = np.average(losses)
     avg_cer = np.average(cer)
-    print(f"TEST CER: {avg_cer:0.3f}")
-    print(f"TEST loss: {avg_loss:0.3f}")
+    logger.info(f"TEST CER: {avg_cer:0.3f}")
+    logger.info(f"TEST loss: {avg_loss:0.3f}")
     RESULTS["test_loss"].append(avg_loss)
     RESULTS["test_CER"].append(avg_cer)
     plot(RESULTS["test_CER"], MODEL_PATH / "TEST_CER.png")
     return avg_loss, avg_cer
 
+
+def load_vision():
+    sys.path.append(str(ROOT / "models"))
+    import VGG
+    vision_model = VGG.VGG_embedding().to(config.device)
+    VGG.loadVGG(vision_model, path=VGG_MODEL_PATH)
+    return vision_model
+    #load_model(VGG_MODEL_PATH, vision_model, optimizer=optimizer, scheduler=scheduler)
+
 def check_epoch():
     global VISION_MODEL_ACTIVE, train_loader
     if config.vision_fine_tuning and config.vision_fine_tuning_start == epoch:
+        logger.info("ACTIVATING VISION MODEL")
+        vision_model = load_vision()
         optimizer.add_param_group({'params': vision_model.parameters()})
         config.batch_size = int(config.batch_size/config.sentence_length)
+        config.steps_per_lr_update *= config.sentence_length
         VISION_MODEL_ACTIVE = True
         train_dataset.which = "Both"
         train_loader = torch.utils.data.DataLoader(train_dataset,
