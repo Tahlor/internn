@@ -23,7 +23,6 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from data import loaders
 import pickle
-RESET=False
 
 """
 Creates:
@@ -39,7 +38,7 @@ from general_tools.utils import get_root
 
 SCRIPT_DIR = (Path(__file__).resolve()).parent
 ROOT = get_root("internn")
-FOLDER = "data/embedding_datasets/embeddings_V4/"
+FOLDER = "data/embedding_datasets/embeddings_V5/"
 warnings.filterwarnings("ignore")
 
 import types
@@ -164,7 +163,7 @@ class SentenceDataset(Dataset):
         train_mode:
                     full sequence - assume the entire sequence is being predicted
                     single character - mask / predict only one character
-                    multicharacter - not implemented
+                    multicharacter
 
         TODO: Add multicharacter masking to train faster
         TODO: Add collate function
@@ -196,13 +195,14 @@ class SentenceDataset(Dataset):
         """
         self.which = which
         self.train = train
-        self.train_mode = train_mode
+        self.original_train_mode = train_mode
+        self.parse_train_mode(self.original_train_mode)
         self.multicharacter_number = multicharacter_number
         self.sentence_length = sentence_length
         self.filter_sentence = FILTERS[sentence_filter]()
         self.vocab_size = vocab_size
         self.normalize_func = NORMALIZE_FUNC[normalize]
-        assert train_mode in ["full sequence", "single character", "multicharacter"]
+
         assert which in ["Images", "Embeddings", "Both"]
 
         self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
@@ -211,21 +211,46 @@ class SentenceDataset(Dataset):
         if self.train:
             self.set_train_mode()
 
+        self.N = self.embd_mean = self.embd_std = 0
+        self.b, self.bb = 0.9,0.99
+
+    def parse_train_mode(self, train_mode):
+        for tm in ["full sequence", "single character", "multicharacter"]:
+            if tm in train_mode:
+                self.train_mode = tm
+                break
+
+        # Train mode must be assigned
+        assert self.train_mode
+        self.train_mode_maskchar_option = {}
+        for opt in ["MASKCHAR", ""]:
+            if opt in train_mode:
+                num = re.search(f"({opt})([\.0-9]*)", train_mode)[2]
+                if num.isdigit():
+                    num = int(num)
+                elif opt=="MASKCHAR": # no number provided, default is 50% random mask character
+                    num = 50
+                self.train_mode_maskchar_option[opt] = num
+                break
+        print(f"Dataloader mode is {self.train_mode, self.train_mode_maskchar_option}")
+
     def load_images(self, train=True, which=""):
         if not which:
             which = self.which
 
-        if which in ['Images', "Both"]:
-            if train:
-                self.images_loaded = self.train_images_loaded
-            else:
-                self.images_loaded = self.test_images_loaded
-
-        if which in ['Embeddings', "Both"]:
-            if train:
-                self.emb_loaded = self.train_emb_loaded
-            else:
-                self.emb_loaded = self.test_emb_loaded
+        # if which in ['Images', "Both"]:
+        #     if train:
+        #         self.images_loaded = self.train_images_loaded
+        #     else:
+        #         self.images_loaded = self.test_images_loaded
+        #     self.sample_image = self.images_loaded.sample(0)
+        #
+        # if which in ['Embeddings', "Both"]:
+        if train:
+            self.emb_loaded = self.train_emb_loaded
+        else:
+            self.emb_loaded = self.test_emb_loaded
+        self.sample_embedding = self.emb_loaded.sample(0)
 
     def __len__(self):
         return self.len
@@ -251,12 +276,13 @@ class SentenceDataset(Dataset):
         self.sentence_data = self.sentence_data_train
         self.load_images(train=True)
         self.len = len(self.sentence_data)
+        self.parse_train_mode(self.original_train_mode)
 
     def set_test_mode(self):
         self.sentence_data = self.sentence_data_test
         self.load_images(train=False)
         self.len = len(self.sentence_data)
-        self.train_mode = "full sequence"
+        self.parse_train_mode("full sequence")
 
     def __getitem__(self, idx, mask_idx=-1):
         """ Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
@@ -291,15 +317,17 @@ class SentenceDataset(Dataset):
         for char in sentence:
             char = str.lower(char)
             char_idx = self.letter_to_num(char)
-            if self.which in ['Images', "Both"]:
-                image = self.images_loaded.sample(char_idx)
-                t = torch.tensor(image[0])
-                #print("HERE", t[0])
-                images.append(t)  # list of tuples of images [0], with labels [1]
-            if self.which in ['Embeddings', "Both"]:
-                embedding = self.emb_loaded.sample(char_idx)
-                vgg_logit.append(embedding[2])
-                embeddings.append(embedding[0])  # list of tuples of images [0], with labels [1]
+            # if self.which in ['Images', "Both"]: ### YOU NEED TO SAMPLE THE SAME ONE!!!
+            #     image = self.images_loaded.sample(char_idx)
+            #     t = torch.tensor(image[0])
+            #     #print("HERE", t[0])
+            #     images.append(t)  # list of tuples of images [0], with labels [1]
+            # if self.which in ['Embeddings', "Both"]:
+            if True:
+                data = self.emb_loaded.sample(char_idx) # 512-embedding, char-idx, one-hot-27 vector
+                vgg_logit.append(data[2])
+                images.append(data[3])
+                embeddings.append(data[0])  # list of tuples of images [0], with labels [1]
             gt_idxs.append(char_idx)
 
         # Convert into a tensor for each list of tensors and return them in a pair
@@ -324,8 +352,37 @@ class SentenceDataset(Dataset):
         attention_mask = torch.ones([sen_len])
         if self.train_mode.endswith("character"):
             if self.train_mode == "multicharacter":
-                choices = min(self.multicharacter_number, int(sen_len / 3))
+                choices = min(self.multicharacter_number, int(sen_len / 6))
                 mask_idx = np.random.choice(sen_len, choices, replace=False)
+                if "MASKCHAR" in self.train_mode_maskchar_option.keys():
+                    prob = self.train_mode_maskchar_option["MASKCHAR"]
+                    # self.embd_mean = self.embd_std = self.N = 0
+                    embd_std, embd_mean = torch.std_mean(embeddings,0)
+                    self.N +=1
+                    denom, denom2 = 1-self.b**self.N, 1-self.bb**self.N
+                    self.embd_mean = (self.embd_mean * self.b + (1-self.b)  * embd_mean)/denom
+                    self.embd_std =  (self.embd_std * self.bb + (1-self.bb) * embd_std)/denom2
+
+                    # Sample some mask_idx
+                    #torch.normal(self.embd_mean, self.embd_std)
+                    mask_idx2 = mask_idx[1]
+                    mask_chars = (torch.randn([choices,*self.embd_mean.shape]) + self.embd_mean) + self.embd_std
+                    embeddings = embeddings.clone()
+                    embeddings[mask_idx2] = mask_chars
+
+                    ### Randomly DON'T replace with random stuff
+                    ### Does multicharacter only have a loss on letters that are masked?
+                            # IMPLEMENT EXCLUSIVE
+                    ### For testing, is there value in masking each letter individually to predict and combining that with the other prediction?
+                        # NO this is exactly what you're trying to get away from
+                    ### NGRAM FUCK
+                    ### Write summaries
+                    ### TRAIN REFORMER
+                    ### Fix folder
+                    ### Re-run experiments, two mistakes:
+                        ## train2 wasn't working: after testing, it would default to "full sequence" mode
+                        ## end2end: images didn't correspond with embeddings? of course not, but they didn't have to, since these need to be regenerated
+
             elif self.train_mode == "single character":
                 mask_idx = np.random.randint(0, sen_len) if mask_idx < 0 else mask_idx # any negative number results in random mask index
             attention_mask[mask_idx] = 0
@@ -353,7 +410,8 @@ class SentenceDataset(Dataset):
                 "text": sentence,
                 "vgg_logits": vgg_logit,
                 "vgg_text": vgg_text,
-                "gt_idxs": gt_idxs}
+                "gt_idxs": gt_idxs, # GTs [1,2,3,17,...]
+                "mask_idx": mask_idx} # the indices that have been masked, e.g. [2,5,6]
 
     @staticmethod
     def letter_to_num(char):
@@ -370,12 +428,13 @@ class EmbeddingSampler:
         DICT_PATH is the path to the pre-saved dictionary for the EmbeddingSample"""
     def __init__(self, load_path=None, which='train'):
         self.which=which
+        self.load_path=load_path
         if load_path:
-            train_letters, test_letters = torch.load(load_path)
+            d = torch.load(load_path)
             if self.which == 'train':
-                self.letters = train_letters
+                self.letters = d["train"]
             elif self.which == 'test':
-                self.letters = test_letters
+                self.letters = d["test"]
 
     def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, save_path= 'train_test_emb_data.pt'):
         """
@@ -386,47 +445,55 @@ class EmbeddingSampler:
             save_path: path where the object will be saved as a .pt file """
 
         if not Path(save_path).exists() or RESET:
-            train_dataset = torch.load(train_emb_data_path)
-            embeddings = train_dataset[0]
-            labels = train_dataset[1]
-            preds_vector = train_dataset[2]
-            self.len = len(labels)
+            train_test_letters = []
+            train_test_master_index = {}
+            for ii, var in enumerate(["train", "test"]):
+                dataset = test_emb_data_path if var=="test" else train_emb_data_path
+                train_dataset = torch.load(dataset)
+                embeddings = train_dataset[0]
+                labels = train_dataset[1]
+                preds_vector = train_dataset[2]
+                images = train_dataset[3]
+                self.len = len(labels)
 
-            # Store Dictionary of letters {0:[(embedding,letter_idx,preds),
-            train_letters = {}
-            for i in range(self.len):
-                k = labels[i].item()
-                # Stores the embedding(x), label(y), and outputd(z)
-                if k in train_letters:
-                    train_letters[k].append((embeddings[i], k, preds_vector[i]))
-                else:
-                    train_letters[k] = [(embeddings[i], k, preds_vector[i])]
+                self.train_letters = {}
+                # Store Dictionary of letters {0:[(embedding,letter_idx,preds),
+                train_letters = {}
+                master_index = {}
+                for idx in range(self.len):
+                    k = labels[idx].item()
+                    # Stores the embedding(x), label(y), and outputd(z)
+                    if k not in train_letters.keys():
+                        train_letters[k]=[]
+                    train_letters[k].append((embeddings[idx], k, preds_vector[idx], images[idx], idx))
+                train_test_letters.append(train_letters)
 
-            test_dataset = torch.load(test_emb_data_path)
-            embeddings = test_dataset[0]
-            labels = test_dataset[1]
-            preds_vector = test_dataset[2]
-            self.len = len(labels)
+                # Be able to reference a specific embedding from idx
+                # train_test_master_index["test"][1236] = char, idx
+                train_test_master_index[var] = master_index
+            d = {"train":train_test_letters[0],
+                "test": train_test_letters[1],
+                "indices": train_test_master_index
+                 }
 
-            # Store Dictionary of letters
-            test_letters = {}
-            for i in range(self.len):
-                k = labels[i].item()
-                # k = torch.argmax(self.y[i], dim=0).item() one hot encoded
-                # Stores the embedding(x), label(y), and outputd(z)
-                if k in test_letters:
-                    test_letters[k].append((embeddings[i], k, preds_vector[i]))
-                else:
-                    test_letters[k] = [(embeddings[i], k, preds_vector[i])]
-
-            torch.save((train_letters, test_letters), save_path)
+            torch.save(d, save_path)
+            train_letters, test_letters = train_test_letters
+            # Verify different number of examples (e.g., first char 1)
+            assert len(train_letters[1]) != len(test_letters[1])
         else:
-            train_letters, test_letters = torch.load(save_path)
+            d = torch.load(save_path)
 
+        self.master_index = train_test_master_index
         if self.which == 'train':
-            self.letters = train_letters
+            self.letters = d["train"]
         elif self.which == 'test':
-            self.letters = test_letters
+            self.letters = d["test"]
+
+    #def loadem(self,path):
+
+    def __getitem__(self, idx):
+        char, emb_idx = self.master_index[self.which]
+        return self.letters[char][emb_idx]
 
     def sample(self, char):
         """ Returns a random embedding from our dictionary for the specified letter"""
@@ -697,6 +764,7 @@ def get_inputs(text,
     labels = labels.type(torch.LongTensor)
     return input_ids, attention_mask, labels, mask_index
 
+
 def get_text(one_hot_tensor):
     """ Converts either one-hot tensor or index tensor to letters
 
@@ -719,13 +787,14 @@ if __name__ == '__main__':
     #example_sen_loader()
     #import importlib, sen_loader
     #importlib.reload(sen_loader); from sen_loader import *
-    RESET=True
+    RESET=False
 
     # Create datasets
-    create_dataset_test()
+    if False:
+        create_dataset_test()
 
     # Test loading it
-    sd = load_sen_dataset(which='Embeddings')
+    sd = load_sen_dataset(which='Embeddings', train_mode="multicharacter MASKCHAR")
     m = next(iter(sd))
 
 

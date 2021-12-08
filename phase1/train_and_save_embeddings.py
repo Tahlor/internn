@@ -15,6 +15,7 @@ import wandb
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
 from general_tools.utils import get_root
 from internn_utils import process_config
+from tqdm import tqdm
 
 """
 CREATES train/test_emb_dataset.pt and vgg.pt
@@ -103,36 +104,32 @@ def calc_embeddings(config):
     """
     """
     save_folder = Path(config.save_folder); save_folder.mkdir(exist_ok=True, parents=True)
-    train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000)
+    train_loader, test_loader = loaders.loader(batch_size_train=100, batch_size_test=1000, shuffle=False)
     model1 = VGG_embedding().to(device)
     loadVGG(model1, path=Path(config.save_folder) / "vgg.pt")
 
-    for l in "train","test":
-        loader = train_loader if l == "train" else test_loader
+    for trtst in "test","train":
+        loader = train_loader if trtst == "train" else test_loader
         # Test the model
         model1.eval()
-        embeddings_list = None
-        labels_list = None
-        one_hot_pred_list = None
+        embeddings_list = []
+        labels_list = []
+        one_hot_pred_list = []
+        images_list = []
 
         with torch.no_grad():  # turn off gradient calc
-            first = True
-            for images, labels in loader:
+
+            for images, labels in tqdm(loader):
                 images = images.to(device)
                 labels = labels.to(device)
 
                 embeddings = model1.get_embedding(images)
                 pred = model1.forward_embedding(embeddings).cpu() # this will output the softmax
 
-                if first:
-                    embeddings_list = embeddings.cpu()
-                    labels_list = labels
-                    one_hot_pred_list = pred
-                    first = False
-                else:
-                    embeddings_list = torch.cat((embeddings_list, embeddings.cpu()), 0)  # torch.Size([100, 512])
-                    labels_list = torch.cat((labels_list, labels), 0)  # torch.Size([100])
-                    one_hot_pred_list = torch.cat((one_hot_pred_list, pred), ) # torch.Size([100, 27])
+                embeddings_list.append(embeddings.cpu())  # torch.Size([100, 512])
+                labels_list.append(labels)  # torch.Size([100])
+                one_hot_pred_list.append(pred)  # torch.Size([100, 27])
+                images_list.append(images.cpu())
 
             # Calculate space
             space_image = (torch.zeros(*images.shape) + torch.min(images).tolist()).to(device)[0:1]
@@ -140,19 +137,18 @@ def calc_embeddings(config):
             label[0] = 0
             embd = model1.get_embedding(space_image)
             pred = model1.forward_embedding(embd).cpu()
+            embeddings_list.append(embd.cpu()); labels_list.append(label); one_hot_pred_list.append(pred); images_list.append(space_image.cpu())
 
-            embeddings_list = torch.cat((embeddings_list, embd.cpu()), 0)
-            labels_list = torch.cat((labels_list, label), 0)
-            #pred = torch.zeros(one_hot_pred_list.shape[1]).to(device); pred[0] = 1
-            #pred = FN.one_hot(0, num_classes=one_hot_pred_list.shape[1]) # NO YOU NEED TO GET A PREDICTION THAT GOES TO THE SPACE YOU IDIOT
-            one_hot_pred_list = torch.cat((one_hot_pred_list, pred), 0)
+            lists = [embeddings_list, labels_list, one_hot_pred_list, images_list]
+            for ii,ll in enumerate(lists):
+                lists[ii] = torch.cat(ll)
 
         # Save new calculated embeddings one hot encoded
         # if "normalized" in str(OUTPUT):
         #     for i in range(0,len(embeddings_list)):
         #         embeddings_list[i] = torch.nn.functional.normalize(embeddings_list[i], dim=-1)
 
-        torch.save((embeddings_list, labels_list, one_hot_pred_list), save_folder / f'{l}_emb_dataset.pt')
+        torch.save((lists), save_folder / f'{trtst}_emb_dataset.pt')
 
 def main(config,
          *args,
@@ -246,7 +242,9 @@ if __name__=='__main__':
     ### OVERRIDE
     opts.calc_embeddings = True
     if not opts.calc_embeddings:
+        print("TRAINING MODEL")
         main(config)
+    print("SAVING EMBEDDINGS")
     calc_embeddings(config)
 
 

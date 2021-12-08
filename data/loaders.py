@@ -31,6 +31,7 @@ def advanced_loader():
 
 def loader(batch_size_train = 100,
            batch_size_test = 1000,
+           shuffle = True,
            *args,
            **kwargs):
 
@@ -43,7 +44,7 @@ def loader(batch_size_train = 100,
                                    torchvision.transforms.Normalize(
                                      (0.1307,), (0.3081,))
                                  ])),
-      batch_size=batch_size_train, shuffle=True)
+      batch_size=batch_size_train, shuffle=shuffle)
 
     test_loader = torch.utils.data.DataLoader(
       torchvision.datasets.EMNIST(ROOT / 'data/emnist', split='letters', train=False, download=True,
@@ -52,7 +53,7 @@ def loader(batch_size_train = 100,
                                    torchvision.transforms.Normalize(
                                      (0.1307,), (0.3081,))
                                  ])),
-      batch_size=batch_size_test, shuffle=True)
+      batch_size=batch_size_test, shuffle=shuffle)
 
     examples = enumerate(test_loader)
     batch_idx, (example_data, example_targets) = next(examples)

@@ -34,12 +34,14 @@ train_mode: full sequence
       # full sequence - assume the entire sequence is being predicted
       # single character - mask / predict only one character
       # multicharacter - mask some of the input, predict only the masked portions
-
+      ## Keywords
+        ## MASKCHAR: if present, replace input char with MASKCHAR
+            # Maskchar is sampled from distribution of letters, or a random character
 
 ## Switch to other train mode
-train_mode2: null
+train_mode2: multicharacter MASKCHAR50
 train_mode2_start: 2 # how many epoch(?) before starting
-train_mode2_probability: .5 # 0-1 : after train_mode2_start, how likely does it apply?
+train_mode2_probability: .95 # 0-1 : after train_mode2_start, how likely does it apply?
 
 vision_fine_tuning: true # end-to-end training
 vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning

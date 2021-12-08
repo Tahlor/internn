@@ -13,7 +13,7 @@ baseline_configs = ["00_master.yaml"]
 baseline_configs = [ (LM / "configs") / b for b in baseline_configs]
 variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
                   "embedding_norm":["softmax"],
-                  "train_mode2": ["single character", "multicharacter"]}
+                  "train_mode2": ["single character", "multicharacter", "multicharacter MASKCHAR80 EXCLUSIVE"]}
 
 baseline_dict = {"max_intensity": 0}
 baseline_dict = False

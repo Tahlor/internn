@@ -98,9 +98,14 @@ train_loader = torch.utils.data.DataLoader(train_dataset,
 # printR("Sen Lengths", sample["length"])
 # printR("GT One Hot", get_text(sample["gt_one_hot"]))
 
-model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
+if True:
+    model = BertModelCustom(BertConfig(vocab_size=config.vocab_size_extended,
                                    hidden_size=config.embedding_dim,
                                    num_attention_heads=config.attention_heads)).to(config.device)
+else:
+    from transformers import AutoTokenizer, AutoModelWithLMHead
+    tokenizer = AutoTokenizer.from_pretrained("google/reformer-enwik8")
+    model = AutoModelWithLMHead.from_pretrained("google/reformer-enwik8")
 
 objective = nn.CrossEntropyLoss()
 #objective = nn.NLLLoss(ignore_index=0)
@@ -147,7 +152,17 @@ cer_list = []
 lr = optimizer.param_groups[0]['lr']
 printR("INITIAL LR", lr)
 
-def run_one_batch_default(sample):
+def run_one_batch_default(sample, exclusive=False):
+    """
+
+    Args:
+        sample:
+
+    Returns:
+        output: BATCH, SEQ, VOCAB - BERT + LinearLayer to match output vocabulary
+        y_hat:  BATCH, SEQ, VOCAB - uses the MLM decoder - the decoder is just a linear layer -- we haven't been training this one
+        y_truth
+    """
     if VISION_MODEL_ACTIVE:
         x, y_truth, attention_mask = sample["image"], sample["masked_gt"].to(
         config.device), sample["attention_mask"].to(config.device)
@@ -168,13 +183,21 @@ def run_one_batch_default(sample):
         # You still can't use BERT embeddings, since these assume input is discrete
         #output, y_hat = model(input_ids=x, attention_mask=attention_mask)
         x = embedding(x)
+    if exclusive:
+        output = output[sample["mask_idx"]]
+        y_hat = y_hat[sample["mask_idx"]]
+        y_truth = y_truth[sample["mask_idx"]]
     output, y_hat = model(inputs_embeds=x, attention_mask=attention_mask)
     return output, y_hat, y_truth
 
-def run_one_batch_lm_only(sample):
+def run_one_batch_lm_only(sample, exclusive=False):
     attention_mask = sample["attention_mask"].to(config.device)
     input_ids = y_truth = sample["gt_idxs"].to(config.device)
     output, y_hat = model(input_ids=input_ids, attention_mask=attention_mask)
+    if exclusive:
+        output = output[sample["mask_idx"]]
+        y_hat = y_hat[sample["mask_idx"]]
+        y_truth = y_truth[sample["mask_idx"]]
     return output, y_hat, y_truth
 
 run_one = run_one_batch_lm_only if "language_only" in config.experiment_type else run_one_batch_default
@@ -276,7 +299,7 @@ def run_test_set():
                 break
 
     except Exception as e:
-        logger.info((e)
+        logger.info((e))
     avg_loss = np.average(losses)
     avg_cer = np.average(cer)
     logger.info(f"TEST CER: {avg_cer:0.3f}")

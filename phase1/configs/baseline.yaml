@@ -12,10 +12,10 @@ decay_factor: .5
 test_size: null   # number of items in test dataset loader - smaller for faster prototyping
 train_size: null
 batch_size_train: 100
-batch_size_test: 1000
+batch_size_test: 1sd000
 
 # Main save folder -- for both the VGG model and all the embedding files
-save_folder: ./data/embedding_datasets/embeddings_V4  # This will be incremented each experiment
+save_folder: ./data/embedding_datasets/embeddings_V5  # This will be incremented each experiment
 
 
 #save_embedding_dataset_folder:
