@@ -13,7 +13,7 @@
 ## Check baseline with only lowercase
 ## Combine with digit MNIST
 
-TESTING: false
+TESTING: true
 
 # Paths
 folder_dependencies:
@@ -48,7 +48,7 @@ train_mode: full sequence
 
 ## Switch to other train mode
 # config.train_mode2 = multicharacter MEAN_EMBEDDING
-train_mode2: multicharacter MEAN_EMBEDDING # RANDOM_CHAR50 USE_CORRECT_CHAR50 MEAN_EMBEDDING MASK_CHAR50
+train_mode2: multicharacter RANDOM_CHAR50 # RANDOM_CHAR50 USE_CORRECT_CHAR50 MEAN_EMBEDDING MASK_CHAR50
 train_mode2_start: 0 # how many epoch(?) before starting
 train_mode2_probability: .6 # 0-1 : after train_mode2_start, how likely does it apply?
 

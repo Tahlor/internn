@@ -14,8 +14,11 @@ Original file is located at
 ## WHY isn't the language model that good?
 ## What is going on with do nt?
 ## Fix folder structure
-## Sbatcher
 ## Get resume to work smoothly
+
+# RANDOMCHAR is wrong shape
+# Need to learn LOGIT version to preload
+# Finish working on stats -- calculate CER only for the characters in question??? Do both!
 
 """
 import numpy as np
@@ -220,7 +223,11 @@ losses = []
 
 #### LOAD THE OLD MODELS
 if "lm_model_path" in config.folder_dependencies:
-    load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=optimizer, scheduler=scheduler)
+    try:
+        load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=optimizer, scheduler=scheduler)
+    except Exception as e:
+        logger.error(str(e))
+
 if "finetuned_cnn_path" in config.folder_dependencies:
     vision_model.load_state_dict(torch.load(config.folder_dependencies.finetuned_cnn_path))
 

@@ -423,7 +423,7 @@ class SentenceDataset(Dataset):
                             elif version=="MEAN_EMBEDDING":
                                 mask_chars = self.embd_mean
                             elif version=="RANDOM_CHAR":
-                                mask_chars = torch.cat([self.get_random_char()[0] for i in range(mask_char_count)])
+                                mask_chars = torch.stack([self.get_random_char()[0] for i in range(mask_char_count)])
 
                             embeddings[mask_char_idx] = mask_chars
 
