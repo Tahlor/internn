@@ -406,7 +406,7 @@ class SentenceDataset(Dataset):
 
                 # Sample some mask_idx
                 #mask_char_count = torch.sum(torch.rand(len(mask_idx)) > prob)
-            if self.train_mode_maskchar_list[0][0]:
+            if self.train_mode_maskchar_list and self.train_mode_maskchar_list[0][0]:
                 mask_char_counts = np.random.multinomial(len(mask_idx),[p[1] for p in self.train_mode_maskchar_list])
                 embeddings = embeddings.clone()
                 start = 0
