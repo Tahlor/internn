@@ -18,6 +18,9 @@ Original file is located at
 ## Get resume to work smoothly
 
 """
+import numpy as np
+
+import stats
 from lm_utils import *
 from error_measures import *
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
@@ -57,6 +60,7 @@ if config.wandb:
 LOADER_PATH = ROOT / config.folder_dependencies.embedding_dataset_folder
 VGG_MODEL_PATH = ROOT / config.folder_dependencies.VGG_model_path
 
+
 # folder management
 # Get the config path relative to results/configs folder
 configs_path = Path(get_max_root(["results","configs"],config_path))
@@ -75,14 +79,14 @@ MODEL_PATH = ROOT / "lm" / config.folder_outputs
 text = config.alphabet
 corpus = [char for char in text]
 EXPERIMENT_NAME = config.experiment_prefix + config.experiment_type
-
-train_dataset = SentenceDataset(PATH=LOADER_PATH / 'train_test_sentenceDataset.pt',
+train_dataset = SentenceDataset(PATH=LOADER_PATH / config.sen_loader_pt_file,
                                 which='Embeddings',
                                 train_mode=config.train_mode,
                                 sentence_length=config.sentence_length,
                                 sentence_filter="lowercase",
                                 vocab_size=config.vocab_size,
                                 normalize=config.embedding_norm,
+                                alphabet=config.alphabet
                                 )
 
 train_loader = torch.utils.data.DataLoader(train_dataset,
@@ -152,7 +156,7 @@ cer_list = []
 lr = optimizer.param_groups[0]['lr']
 printR("INITIAL LR", lr)
 
-def run_one_batch_default(sample, exclusive=False):
+def run_one_batch_default(sample):
     """
 
     Args:
@@ -183,21 +187,30 @@ def run_one_batch_default(sample, exclusive=False):
         # You still can't use BERT embeddings, since these assume input is discrete
         #output, y_hat = model(input_ids=x, attention_mask=attention_mask)
         x = embedding(x)
-    if exclusive:
-        output = output[sample["mask_idx"]]
-        y_hat = y_hat[sample["mask_idx"]]
-        y_truth = y_truth[sample["mask_idx"]]
     output, y_hat = model(inputs_embeds=x, attention_mask=attention_mask)
+
+    # if EXCLUSIVE:
+    #     output = output[sample["mask_idx"]]
+    #     y_hat = y_hat[sample["mask_idx"]]
+    #     y_truth = y_truth[sample["mask_idx"]]
     return output, y_hat, y_truth
 
-def run_one_batch_lm_only(sample, exclusive=False):
+def run_one_batch_lm_only(sample):
+    """ Not fully implemented? Main difference is it probably uses a tokenizer etc., not the embedding we used in the vision system
+    Args:
+        sample:
+        exclusive:
+
+    Returns:
+
+    """
     attention_mask = sample["attention_mask"].to(config.device)
     input_ids = y_truth = sample["gt_idxs"].to(config.device)
     output, y_hat = model(input_ids=input_ids, attention_mask=attention_mask)
-    if exclusive:
-        output = output[sample["mask_idx"]]
-        y_hat = y_hat[sample["mask_idx"]]
-        y_truth = y_truth[sample["mask_idx"]]
+    # if EXCLUSIVE:
+    #     output = output[sample["mask_idx"]]
+    #     y_hat = y_hat[sample["mask_idx"]]
+    #     y_truth = y_truth[sample["mask_idx"]]
     return output, y_hat, y_truth
 
 run_one = run_one_batch_lm_only if "language_only" in config.experiment_type else run_one_batch_default
@@ -205,7 +218,7 @@ losses = []
 
 #### LOAD THE OLD MODELS
 if "lm_model_path" in config.folder_dependencies:
-    load_model(config.folder_dependencies.lm_model_path, model, optimizer=optimizer, scheduler=scheduler)
+    load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=optimizer, scheduler=scheduler)
 if "finetuned_cnn_path" in config.folder_dependencies:
     vision_model.load_state_dict(torch.load(config.folder_dependencies.finetuned_cnn_path))
 
@@ -221,32 +234,42 @@ config.folder_dependencies.lm_model_path = SAVE_PATH = incrementer(MODEL_PATH, E
 config.folder_dependencies.finetuned_cnn_path = SAVE_PATH_VISION = incrementer(MODEL_PATH, EXPERIMENT_NAME + "_CNN.pt", incrementer=False)
 config.folder_dependencies.finetuned_cnn_path = RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
 
+COUNTER = stats.Counter(instances_per_epoch=config.epoch_length)
+l1 = stats.AutoStat(COUNTER, name="Loss1")
+l2 = stats.AutoStat(COUNTER, name="Loss2")
+STAT = l1
 def run_epoch():
+    global STAT
     global losses, STEP_GLOBAL
     logger.info(("epoch", epoch))
     train_dataset.set_train_mode()
     model.train()
     losses_10 = []
     start_time = datetime.datetime.now()
+    COUNTER.epochs += 1
     for ii, sample in enumerate(train_loader):
-        if config.train_mode2:
-            if epoch >= config.train_mode2_start and random.random() < config.train_mode2_probability:
-                train_dataset.train_mode = config.train_mode2
-            else:
-                train_dataset.train_mode = config.train_mode
-
         output, y_hat, y_truth = run_one(sample)
         optimizer.zero_grad()
+        COUNTER.update(updates=1, instances=y_hat.shape[0], preds=sample["num_preds"])
+
+        ### -100 is a special index that is IGNORED by the objective; so everything was already "exclusive"; y_truth INDICES of correct letters, -100 ignored
         loss = objective(output.view(-1, config.vocab_size_extended), y_truth.squeeze(0).view(-1).to(config.device)) # y_hat includes extra tokens?
         loss.backward()
+        STAT.accumulate(loss.item(), weight=sample["num_preds"])
         losses_10.append(loss.item())
         optimizer.step()
 
-        #get_text(output.squeeze())
-        #sample["text"]
-
         STEP_GLOBAL = STEP_GLOBAL + 1
+        if torch.any(torch.isnan(loss)):
+            logger.error("NaN in loss")
+            return
+
         if STEP_GLOBAL % config.steps_per_lr_update == 0 or STEP_GLOBAL < 10:
+            l1.reset_accumulator()
+            l2.reset_accumulator()
+            logger.info(("L1", STEP_GLOBAL, l1))
+            logger.info(("L2", STEP_GLOBAL, l2))
+
             l = np.average(losses_10)
             losses.append(l)
             losses_10 = []
@@ -260,14 +283,28 @@ def run_epoch():
                 config["lr"] = lr
             if config.wandb:
                 wandb.log({"loss": l, "epoch": epoch, "step": ii, "cer":cer_list[-1]}, step=STEP_GLOBAL, commit=False)
-            if config.TESTING:
-                break
+
         # if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
         #     start_time = datetime.datetime.now()
         #     break
         # Define an epoch by some arbitrary number of updates
         if ii*config.batch_size > config.epoch_length:
             break
+
+        ### CHANGE TRAINING MODE IF NEEDED
+        old_mode = train_dataset.train_mode
+        if config.train_mode2:
+            ### YOU CAN'T CHANGE THE DATALOADER ONCE YOU'VE SAMPLED IT -- EVERYTHING IS LAGGED ONE UPDATE
+            if epoch >= config.train_mode2_start and random.random() < config.train_mode2_probability:
+                train_dataset.train_mode = config.train_mode2
+                STAT = l1
+            else:
+                train_dataset.train_mode = config.train_mode
+                STAT = l2
+            if old_mode != train_dataset.train_mode:
+                train_dataset.parse_train_mode()
+
+
 
     if epoch % config.save_freq_epoch == 0:
         save_model(SAVE_PATH, model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)

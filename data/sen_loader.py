@@ -3,6 +3,7 @@
 # dataloader that does embeddings and images
 # use indices properly; check collate function
 """
+PRECALCULATE_EMBEDDING = True
 import re
 import datasets
 import copy
@@ -10,6 +11,7 @@ import os
 import pdb
 import random
 import torch
+from torch import tensor
 import torchvision
 import torchvision.transforms.functional as F
 import torch.nn.functional as FN
@@ -160,7 +162,7 @@ class SentenceDataset(Dataset):
         args:
         PATH: path to load the SentenceDataset previously saved
         which: 'Images' or 'Embeddings'
-        train_mode:
+        active_mode:
                     full sequence - assume the entire sequence is being predicted
                     single character - mask / predict only one character
                     multicharacter
@@ -178,7 +180,8 @@ class SentenceDataset(Dataset):
                  sentence_filter="lowercase",
                  vocab_size=27,
                  normalize="L2",
-                 multicharacter_number=5):
+                 multicharacter_number=5,
+                 alphabet="abcdefghi jklmnopqrstuvwxyz"):
         """
 
         Args:
@@ -193,16 +196,17 @@ class SentenceDataset(Dataset):
         which = "Both"  is not implemented
 
         """
+        print(f"Sentence Dataset Path: {PATH}")
         self.which = which
         self.train = train
-        self.original_train_mode = train_mode
-        self.parse_train_mode(self.original_train_mode)
+        self.train_mode = train_mode
+        self.parse_train_mode(self.train_mode)
         self.multicharacter_number = multicharacter_number
         self.sentence_length = sentence_length
         self.filter_sentence = FILTERS[sentence_filter]()
         self.vocab_size = vocab_size
         self.normalize_func = NORMALIZE_FUNC[normalize]
-
+        self.alphabet = alphabet
         assert which in ["Images", "Embeddings", "Both"]
 
         self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
@@ -211,28 +215,54 @@ class SentenceDataset(Dataset):
         if self.train:
             self.set_train_mode()
 
-        self.N = self.embd_mean = self.embd_std = 0
+        self.N = self._embd_mean = self._embd_std = 0
+
+        ## ALWAYS USE TRAINING MASK EMBEDDINGS
+        self.embd_mean, self.embd_std = self.train_emb_loaded.embd_mean, self.train_emb_loaded.embd_std
+
         self.b, self.bb = 0.9,0.99
 
-    def parse_train_mode(self, train_mode):
+    def save_small(self, path):
+
+        for x in self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded:
+            for key in x.letters:
+                x.letters[key] = x.letters[key][:10]
+        m = [self.sentence_data[:1000], self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded]
+        torch.save(m, path)
+
+    def parse_train_mode(self, train_mode=None):
+        if train_mode is None:
+            train_mode = self.train_mode
         for tm in ["full sequence", "single character", "multicharacter"]:
             if tm in train_mode:
-                self.train_mode = tm
+                self.active_mode = tm
                 break
 
         # Train mode must be assigned
-        assert self.train_mode
+        assert self.active_mode
         self.train_mode_maskchar_option = {}
-        for opt in ["MASKCHAR", ""]:
-            if opt in train_mode:
-                num = re.search(f"({opt})([\.0-9]*)", train_mode)[2]
-                if num.isdigit():
-                    num = int(num)
-                elif opt=="MASKCHAR": # no number provided, default is 50% random mask character
-                    num = 50
-                self.train_mode_maskchar_option[opt] = num
-                break
-        print(f"Dataloader mode is {self.train_mode, self.train_mode_maskchar_option}")
+        if not train_mode:
+            self.train_mode_maskchar_option[""] = 1
+            self.train_mode_maskchar_list = ["",1]
+        else:
+            total_num = 0
+            for opt in ["MASK_CHAR", "DONT_ATTEND_TO_MASK_CHAR", "RANDOM_CHAR", "USE_CORRECT_CHAR", "MEAN_EMBEDDING"]:
+                if opt in train_mode:
+                    num = re.search(f"({opt})([\._0-9]*)", train_mode)
+                    if num and num[2].isdigit():
+                        num = int(num[2])
+                    elif opt in ["MASK_CHAR", "RANDOM_CHAR", "MEAN_EMBEDDING"]: # no number provided, default is 50% random mask character
+                        num = 50
+                    else:
+                        num = 0
+                    # Add the variants with weight
+                    if num:
+                        self.train_mode_maskchar_option[opt] = num
+                        total_num += num
+            #self.train_mode_maskchar_option = {k: v / total_num for k, v in self.train_mode_maskchar_option.items()}
+            self.train_mode_maskchar_list = [(k,v/total_num) for k,v in self.train_mode_maskchar_option.items()]
+        if False:
+            print(f"Dataloader mode is {self.active_mode, self.train_mode_maskchar_option}")
 
     def load_images(self, train=True, which=""):
         if not which:
@@ -276,13 +306,48 @@ class SentenceDataset(Dataset):
         self.sentence_data = self.sentence_data_train
         self.load_images(train=True)
         self.len = len(self.sentence_data)
-        self.parse_train_mode(self.original_train_mode)
+        self.parse_train_mode(self.train_mode)
 
     def set_test_mode(self):
         self.sentence_data = self.sentence_data_test
         self.load_images(train=False)
         self.len = len(self.sentence_data)
         self.parse_train_mode("full sequence")
+
+    def sentence_to_data(self, sentence):
+        embeddings = list()
+        images = list()
+        gt_idxs = list()
+        vgg_logit = list()
+
+        for char in sentence:
+            char = str.lower(char)
+            char_idx = self.letter_to_num(char)
+            data = self.emb_loaded.sample(char_idx) # 512-embedding, char-idx, one-hot-27 vector
+            vgg_logit.append(data[2])
+            images.append(data[3])
+            embeddings.append(data[0])  # list of tuples of images [0], with labels [1]
+            gt_idxs.append(char_idx)
+        return embeddings, images, gt_idxs, vgg_logit
+
+    def get_random_char(self, char=None):
+        if char is None:
+            char = random.choice(self.alphabet)
+        char_idx = self.letter_to_num(char)
+        data = self.emb_loaded.sample(char_idx)
+        return data # 0 = embedding, 2 = logits, 3 = image
+
+    # This is stupid
+    def update_exponential_average(self, embeddings):
+        # self.embd_mean = self.embd_std = self.N = 0
+        embd_std, embd_mean = torch.std_mean(embeddings, 0)
+        self.N += 1
+        denom, denom2 = 1 - self.b ** self.N, 1 - self.bb ** self.N
+        self._embd_mean = (self._embd_mean * self.b + (1 - self.b) * embd_mean)
+        self._embd_std = (self._embd_std * self.bb + (1 - self.bb) * embd_std)
+
+        self.embd_mean = self._embd_mean / denom
+        self.embd_std = self._embd_std / denom2
 
     def __getitem__(self, idx, mask_idx=-1):
         """ Get's a sentences of size 32 or less chars and samples EMNIST or Embeddings for the corresponding character images
@@ -306,37 +371,18 @@ class SentenceDataset(Dataset):
         #     sentence = self.get_sentence(self.sentence_data_train[i])
         #     print(sentence)
 
-        x = list()
-        embeddings = list()
-        images = list()
-        gt_idxs = list()
-        vgg_logit = list()
         data, embedding, image = None, None, None
         sen_len = len(sentence)
         vgg_text = ""
-        for char in sentence:
-            char = str.lower(char)
-            char_idx = self.letter_to_num(char)
-            # if self.which in ['Images', "Both"]: ### YOU NEED TO SAMPLE THE SAME ONE!!!
-            #     image = self.images_loaded.sample(char_idx)
-            #     t = torch.tensor(image[0])
-            #     #print("HERE", t[0])
-            #     images.append(t)  # list of tuples of images [0], with labels [1]
-            # if self.which in ['Embeddings', "Both"]:
-            if True:
-                data = self.emb_loaded.sample(char_idx) # 512-embedding, char-idx, one-hot-27 vector
-                vgg_logit.append(data[2])
-                images.append(data[3])
-                embeddings.append(data[0])  # list of tuples of images [0], with labels [1]
-            gt_idxs.append(char_idx)
+
+        # Sample images from sentence letters
+        embeddings, images, gt_idxs, vgg_logit = self.sentence_to_data(sentence)
 
         # Convert into a tensor for each list of tensors and return them in a pair
         if len(images):
             images = torch.stack(images)
         if len(embeddings):
-            #assert isinstance(embeddings, list)
             embeddings = torch.stack(embeddings)
-            #assert torch.is_tensor(embeddings)
 
         if self.which in ('Images', 'Both'): # Embed labels are tensors, Img labels are not.
             gt_idxs = torch.tensor(gt_idxs)
@@ -350,48 +396,46 @@ class SentenceDataset(Dataset):
 
         # Provide attention and label masks
         attention_mask = torch.ones([sen_len])
-        if self.train_mode.endswith("character"):
-            if self.train_mode == "multicharacter":
-                choices = min(self.multicharacter_number, int(sen_len / 6))
-                mask_idx = np.random.choice(sen_len, choices, replace=False)
-                if "MASKCHAR" in self.train_mode_maskchar_option.keys():
-                    prob = self.train_mode_maskchar_option["MASKCHAR"]
-                    # self.embd_mean = self.embd_std = self.N = 0
-                    embd_std, embd_mean = torch.std_mean(embeddings,0)
-                    self.N +=1
-                    denom, denom2 = 1-self.b**self.N, 1-self.bb**self.N
-                    self.embd_mean = (self.embd_mean * self.b + (1-self.b)  * embd_mean)/denom
-                    self.embd_std =  (self.embd_std * self.bb + (1-self.bb) * embd_std)/denom2
+        if self.active_mode.endswith("character"):
+            choices = min(self.multicharacter_number, int(sen_len / 6)) if self.active_mode == "multicharacter" else 1
+            mask_idx = mask_char_idx = np.random.choice(sen_len, choices, replace=False)
+            old_embeddings = embeddings
+            # Compute exponential average of dataset
+            if not PRECALCULATE_EMBEDDING and ("MASK_CHAR" or "MEAN_EMBEDDING" in self.train_mode_maskchar_option.keys()):
+                self.update_exponential_average(embeddings)
 
-                    # Sample some mask_idx
-                    #torch.normal(self.embd_mean, self.embd_std)
-                    mask_idx2 = mask_idx[1]
-                    mask_chars = (torch.randn([choices,*self.embd_mean.shape]) + self.embd_mean) + self.embd_std
-                    embeddings = embeddings.clone()
-                    embeddings[mask_idx2] = mask_chars
+                # Sample some mask_idx
+                #mask_char_count = torch.sum(torch.rand(len(mask_idx)) > prob)
+            if self.train_mode_maskchar_list[0][0]:
+                mask_char_counts = np.random.multinomial(len(mask_idx),[p[1] for p in self.train_mode_maskchar_list])
+                embeddings = embeddings.clone()
+                start = 0
+                for i, (version, prob) in enumerate(self.train_mode_maskchar_list):
+                    mask_char_count = mask_char_counts[i]
+                    end = start + mask_char_count
+                    if version in ["MASK_CHAR","RANDOM_CHAR", "MEAN_EMBEDDING"]:
+                        mask_char_idx = mask_idx[start:end] # the indices that have been replaced with a mask_char
+                        start = end
+                        if mask_char_count:
+                            if version=="MASK_CHAR":
+                                mask_chars = (torch.randn(
+                                    [mask_char_count, *self.embd_mean.shape]) + self.embd_mean) + self.embd_std
+                            elif version=="MEAN_EMBEDDING":
+                                mask_chars = self.embd_mean
+                            elif version=="RANDOM_CHAR":
+                                mask_chars = torch.cat([self.get_random_char()[0] for i in range(mask_char_count)])
 
-                    ### Randomly DON'T replace with random stuff
-                    ### Does multicharacter only have a loss on letters that are masked?
-                            # IMPLEMENT EXCLUSIVE
-                    ### For testing, is there value in masking each letter individually to predict and combining that with the other prediction?
-                        # NO this is exactly what you're trying to get away from
-                    ### NGRAM FUCK
-                    ### Write summaries
-                    ### TRAIN REFORMER
-                    ### Fix folder
-                    ### Re-run experiments, two mistakes:
-                        ## train2 wasn't working: after testing, it would default to "full sequence" mode
-                        ## end2end: images didn't correspond with embeddings? of course not, but they didn't have to, since these need to be regenerated
+                            embeddings[mask_char_idx] = mask_chars
 
-            elif self.train_mode == "single character":
-                mask_idx = np.random.randint(0, sen_len) if mask_idx < 0 else mask_idx # any negative number results in random mask index
             attention_mask[mask_idx] = 0
             masked_gt = torch.zeros([sen_len],dtype=torch.long) - 100
             masked_gt[mask_idx] = gt_idxs[mask_idx]  # everything else to not predict is -100
-        elif self.train_mode == "full sequence":
+        elif self.active_mode == "full sequence":
             masked_gt = gt_idxs
+            mask_char_idx = [] # the indices that have been replaced with a mask_char -- NONE!
+            mask_idx = [x for x in range(0,sen_len)] # the indices that are being predicted
         else:
-            raise Exception(f"Unknown train_mode {self.train_mode}")
+            raise Exception(f"Unknown active_mode {self.active_mode}")
         masked_gt = masked_gt.type(torch.LongTensor)
 
         if self.which in ('Embeddings', 'Both'):  # Emb's pass the output distribution as well
@@ -400,18 +444,22 @@ class SentenceDataset(Dataset):
             embeddings = self.normalize_func(embeddings, dim=-1)
             vgg_logit  = self.normalize_func(vgg_logit, dim=-1)
 
+        num_preds = masked_gt[masked_gt != -100].shape[0]
+
         return {"data":embeddings if self.which in ('Embeddings', 'Both') else images,
                 "embedding":embeddings,
                 "image": images,
                 "gt_one_hot":gt_one_hot,
                 "length":sen_len,
-                "attention_mask": attention_mask,
-                "masked_gt": masked_gt,
+                "attention_mask": attention_mask, # [1,1,1,0,0,]
+                "masked_gt": masked_gt, # full sequence: [5,2,0,3,-100,-100...]; multichar: [-100,-100,0,-100,-100,-100...]
                 "text": sentence,
                 "vgg_logits": vgg_logit,
                 "vgg_text": vgg_text,
                 "gt_idxs": gt_idxs, # GTs [1,2,3,17,...]
-                "mask_idx": mask_idx} # the indices that have been masked, e.g. [2,5,6]
+                "mask_idx": mask_idx, # the indices that have been masked, i.e., not predicted, can't be attended to, [2,5,6]
+                "mask_char_idx": mask_char_idx,
+                "num_preds": num_preds} # the number of predictions being made
 
     @staticmethod
     def letter_to_num(char):
@@ -431,10 +479,7 @@ class EmbeddingSampler:
         self.load_path=load_path
         if load_path:
             d = torch.load(load_path)
-            if self.which == 'train':
-                self.letters = d["train"]
-            elif self.which == 'test':
-                self.letters = d["test"]
+            self.setup_from_dict(d)
 
     def createEmbeddingSampler(self, train_emb_data_path, test_emb_data_path, save_path= 'train_test_emb_data.pt'):
         """
@@ -471,25 +516,39 @@ class EmbeddingSampler:
                 # Be able to reference a specific embedding from idx
                 # train_test_master_index["test"][1236] = char, idx
                 train_test_master_index[var] = master_index
+
+            train_letters, test_letters = train_test_letters
+            mean,std = self.compute_average(train_letters)  # d["train"]
+
             d = {"train":train_test_letters[0],
                 "test": train_test_letters[1],
-                "indices": train_test_master_index
+                "indices": train_test_master_index,
+                "mean": mean,
+                "std": std
                  }
 
             torch.save(d, save_path)
-            train_letters, test_letters = train_test_letters
             # Verify different number of examples (e.g., first char 1)
             assert len(train_letters[1]) != len(test_letters[1])
         else:
             d = torch.load(save_path)
+        self.setup_from_dict(d)
 
-        self.master_index = train_test_master_index
+    def setup_from_dict(self, d):
+        self.embd_mean, self.embd_std = d["mean"],d["std"]
+
+        self.master_index = d["indices"]
         if self.which == 'train':
             self.letters = d["train"]
         elif self.which == 'test':
             self.letters = d["test"]
 
-    #def loadem(self,path):
+    def compute_average(self, letters):
+        combined = []
+        for i in letters.values():
+            combined.extend([f[0] for f in i])
+        self.embd_std, self.embd_mean = torch.std_mean(torch.stack(combined), 0)
+        return self.embd_mean, self.embd_std
 
     def __getitem__(self, idx):
         char, emb_idx = self.master_index[self.which]
@@ -600,7 +659,10 @@ def collate_fn_embeddings(data):
         if data_key in padding.keys() and batch_data and torch.is_tensor(batch_data[0]):
             #print(data_key, type(batch_data[0]))
             batch_data = torch.nn.utils.rnn.pad_sequence(batch_data, batch_first=True, padding_value=padding[data_key])
-        output_dict[data_key] = batch_data
+        if data_key == "num_preds":
+            output_dict["num_preds"] = np.sum(batch_data) # masked_gt[masked_gt != -100].shape[0]
+        else:
+            output_dict[data_key] = batch_data
     return output_dict
 
 def createSentenceDataset(sen_list_path,
@@ -713,14 +775,6 @@ def sen_images():
         if i_batch == 5:
             exit()
 
-def create_dataset_test():
-    create_datasets(ROOT / FOLDER,
-                    ROOT / (FOLDER + "train_emb_dataset.pt"),
-                    ROOT / (FOLDER + "test_emb_dataset.pt")
-                    )
-    # sen_images()
-    # sen_embeddings()
-
 def load_sen_dataset(*args, **kwargs):
     sd = SentenceDataset(ROOT / (FOLDER + 'train_test_sentenceDataset.pt'), *args, **kwargs)
     return sd
@@ -782,6 +836,12 @@ def get_text(one_hot_tensor):
         text = text + c
     return text
 
+def make_testing_version(*args,**kwargs):
+    print("Making testing version")
+    sd = SentenceDataset(ROOT / (FOLDER + 'train_test_sentenceDataset.pt'), *args, **kwargs)
+    sd.save_small(ROOT / (FOLDER + 'train_test_sentenceDataset_SMALL.pt'))
+    return sd
+
 # Run Example
 if __name__ == '__main__':
     #example_sen_loader()
@@ -790,11 +850,13 @@ if __name__ == '__main__':
     RESET=False
 
     # Create datasets
-    if False:
-        create_dataset_test()
+    sd_full = create_datasets(ROOT / FOLDER,
+                    ROOT / (FOLDER + "train_emb_dataset.pt"),
+                    ROOT / (FOLDER + "test_emb_dataset.pt")
+                    )
 
     # Test loading it
-    sd = load_sen_dataset(which='Embeddings', train_mode="multicharacter MASKCHAR")
+    sd = make_testing_version(which='Embeddings', train_mode="multicharacter MASK_CHAR")
     m = next(iter(sd))
 
 

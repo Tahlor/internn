@@ -23,7 +23,11 @@ def bert_config(config):
     config.lr = config.lr * config.batch_size / 192
 
     if config.TESTING:
-        config.workers = 1
+        config.workers = 0
+        config.sen_loader_pt_file = 'train_test_sentenceDataset_SMALL.pt'
+        config.epoch_length = config.batch_size * 2 # do 2 repeats per epoch
+    else:
+        config.sen_loader_pt_file = 'train_test_sentenceDataset.pt'
 
     if not config.experiment_description:
         config.experiment_description = config.experiment_type

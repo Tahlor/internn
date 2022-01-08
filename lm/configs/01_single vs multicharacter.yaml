@@ -17,8 +17,8 @@ TESTING: true
 
 # Paths
 folder_dependencies:
-    embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
-    VGG_model_path: 'data/embedding_datasets/embeddings_V4/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
+    embedding_dataset_folder: "data/embedding_datasets/embeddings_V5"  # Where to load embeddings/logits from
+    VGG_model_path: 'data/embedding_datasets/embeddings_V5/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
 
 folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
 wandb: false

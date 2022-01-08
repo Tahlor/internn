@@ -13,12 +13,13 @@
 ## Check baseline with only lowercase
 ## Combine with digit MNIST
 
-TESTING: true
+TESTING: false
 
 # Paths
 folder_dependencies:
-    embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
-    VGG_model_path: 'data/embedding_datasets/embeddings_V4/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
+    embedding_dataset_folder: "data/embedding_datasets/embeddings_V5"  # Where to load embeddings/logits from
+    VGG_model_path: 'data/embedding_datasets/embeddings_V5/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
+    lm_model_path: 'lm/results/BASE2/BERT_vgg_embeddings.pt'
 
 folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
 wandb: false
@@ -35,15 +36,23 @@ train_mode: full sequence
       # single character - mask / predict only one character
       # multicharacter - mask some of the input, predict only the masked portions
       ## Keywords
-        ## MASKCHAR: if present, replace input char with MASKCHAR
+        ## MASK_CHAR50: if present, replace input char with MASK_CHAR
             # Maskchar is sampled from distribution of letters, or a random character
+            # Attending to it is never allowed, i.e., DONT_ATTEND_TO_MASK_CHAR implied
+            # Only the MASK_CHARs are learned
+                # !!Another option would be to still learn all of the letters...
+        ## DONT_ATTEND_TO_MASK_CHAR: don't let others attend to it - NOT IMPLEMENTED
+        ## RANDOM_CHAR50: if present, replace input char with RANDOM_CHAR
+        ## USE_CORRECT_CHAR50: if present
+        ## MEAN_EMBEDDING: use the mean embedding as the MASK CHAR
 
 ## Switch to other train mode
-train_mode2: multicharacter MASKCHAR50
-train_mode2_start: 2 # how many epoch(?) before starting
-train_mode2_probability: .95 # 0-1 : after train_mode2_start, how likely does it apply?
+# config.train_mode2 = multicharacter MEAN_EMBEDDING
+train_mode2: multicharacter MEAN_EMBEDDING # RANDOM_CHAR50 USE_CORRECT_CHAR50 MEAN_EMBEDDING MASK_CHAR50
+train_mode2_start: 0 # how many epoch(?) before starting
+train_mode2_probability: .6 # 0-1 : after train_mode2_start, how likely does it apply?
 
-vision_fine_tuning: true # end-to-end training
+vision_fine_tuning: false # end-to-end training
 vision_fine_tuning_start: 0 # how many epochs(?) before starting the fine-tuning
 alphabet: abcdefghi jklmnopqrstuvwxyz
 sentence_length: 32

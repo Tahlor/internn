@@ -10,10 +10,15 @@ import gen
 from subprocess import Popen
 
 baseline_configs = ["00_master.yaml"]
+NAME = "02_REDO"
 baseline_configs = [ (LM / "configs") / b for b in baseline_configs]
 variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
                   "embedding_norm":["softmax"],
-                  "train_mode2": ["single character", "multicharacter", "multicharacter MASKCHAR80 EXCLUSIVE"]}
+                  "train_mode2": ["single character",
+                                  "multicharacter USE_CORRECT_CHAR_100",
+                                  "multicharacter MASK_CHAR_20 RANDOM_CHAR_20 USE_CORRECT_CHAR_20",
+                                  "multicharacter MASK_CHAR_80 USE_CORRECT_CHAR_20",
+                                  "multicharacter RANDOM_CHAR_80 USE_CORRECT_CHAR_20"]}
 
 baseline_dict = {"max_intensity": 0}
 baseline_dict = False
@@ -53,14 +58,16 @@ def get_int(s):
         return s
 
 def replace_config(yaml_path, variation_list, new_folder="variants"):
+    global NAME
     yaml_path = Path(yaml_path)
 
     yaml_file = check_yaml(yaml.load(Path(yaml_path).read_text(), Loader=yaml.SafeLoader))
-    name = yaml_path.stem
+    if not NAME:
+        NAME = yaml_path.stem
     parent = yaml_path.parent
     ext = yaml_path.suffix
 
-    output_dir = Path(parent / new_folder / name).absolute()
+    output_dir = Path(parent / new_folder / NAME).absolute()
     output_dir.mkdir(parents=True, exist_ok=True)
     print(f"Output directory: {output_dir}")
     output_files = []

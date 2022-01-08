@@ -17,8 +17,8 @@ TESTING: true
 
 # Paths
 folder_dependencies:
-    embedding_dataset_folder: "data/embedding_datasets/embeddings_V4"  # Where to load embeddings/logits from
-    VGG_model_path: 'data/embedding_datasets/embeddings_V4/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
+    embedding_dataset_folder: "data/embedding_datasets/embeddings_V5"  # Where to load embeddings/logits from
+    VGG_model_path: 'data/embedding_datasets/embeddings_V5/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
 
 folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
 wandb: false
@@ -35,7 +35,7 @@ train_mode: full sequence
       # single character - mask / predict only one character
       # multicharacter - mask some of the input, predict only the masked portions
       ## Keywords
-        ## MASKCHAR: if present, replace input char with MASKCHAR
+        ## MASK_CHAR: if present, replace input char with MASK_CHAR
             # Maskchar is sampled from distribution of letters, or a random character
         ## EXCLUSIVE:
             # if present, ONLY THE MASKED CHAR predictions receive feedback, NOT IMPLEMENTED
