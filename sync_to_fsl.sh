@@ -2,7 +2,9 @@
 
 local_root="/media/data/GitHub/internn/"
 fsl_root="/home/taylor/shares/SuperComputerRoot/lustre/scratch/grp/fslg_internn/internn"
-rsync -rutv --update $local_root/data $fsl_root  --info=progress --exclude 'archive*'
+#rsync -rutv --update $local_root/data $fsl_root  --info=progress --exclude 'archive*'
+
+rsync -rutv --update $local_root/lm/results/BASE* $fsl_root/lm/results  --info=progress --exclude 'archive*'
 
 # rsync -vurlt --size-only  '/home/pi/Downloads/external/' '/mnt/theserve/Media/Library/Audio Books/PodcastServer' --info=progress
 # v: verbose

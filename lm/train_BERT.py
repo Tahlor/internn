@@ -19,8 +19,6 @@ Original file is located at
 
 """
 import numpy as np
-
-import stats
 from lm_utils import *
 from error_measures import *
 from torch.optim.lr_scheduler import StepLR, ReduceLROnPlateau
@@ -36,6 +34,10 @@ import random
 from transformers import AdamW
 import process_config_BERT
 import matplotlib.pyplot as plt
+import sys
+
+sys.path.append("..")
+import stats
 
 logger = logging.getLogger("root."+__name__)
 
