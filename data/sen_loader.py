@@ -243,7 +243,7 @@ class SentenceDataset(Dataset):
         self.train_mode_maskchar_option = {}
         if not train_mode:
             self.train_mode_maskchar_option[""] = 1
-            self.train_mode_maskchar_list = ["",1]
+            self.train_mode_maskchar_list = [["",1]]
         else:
             total_num = 0
             for opt in ["MASK_CHAR", "DONT_ATTEND_TO_MASK_CHAR", "RANDOM_CHAR", "USE_CORRECT_CHAR", "MEAN_EMBEDDING"]:

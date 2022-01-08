@@ -23,7 +23,9 @@ Original file is located at
 """
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
-resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
+resource.setrlimit(resource.RLIMIT_NOFILE, (16000, rlimit[1]))
+import torch
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 import numpy as np
 from lm_utils import *
