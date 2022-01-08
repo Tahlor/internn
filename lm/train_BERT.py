@@ -21,6 +21,10 @@ Original file is located at
 # Finish working on stats -- calculate CER only for the characters in question??? Do both!
 
 """
+import resource
+rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
+resource.setrlimit(resource.RLIMIT_NOFILE, (2048, rlimit[1]))
+
 import numpy as np
 from lm_utils import *
 from error_measures import *
