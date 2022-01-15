@@ -12,7 +12,7 @@ from subprocess import Popen
 baseline_configs = ["00_master.yaml"]
 NAME = "02_REDO"
 baseline_configs = [ (LM / "configs") / b for b in baseline_configs]
-variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
+variation_dict = {"experiment_type": ["vgg_embeddings"],
                   "lm_model_path": ['lm/results/BASE/BERT_EXPERIMENT_TYPE.pt'],
                   "embedding_norm":["softmax"],
                   "train_mode2": ["single character",
