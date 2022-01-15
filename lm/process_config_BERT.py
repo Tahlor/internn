@@ -51,7 +51,7 @@ def bert_config(config):
     config.vgg_embeddings.loader_key = "embedding"
     config.vgg_logits.loader_key = "vgg_logits"
 
-
+    apply_defaults(process_config(DEFAULT_YAML), config)
     """
     sep_token (separator token, used when building a sequence from multiple sequences, e.g. two sequences for sequence classification or for a text and a question for question answering
     pad_token
@@ -59,8 +59,26 @@ def bert_config(config):
     mask_token
     """
 
-
     return config
+
+def apply_defaults(dict1,dict2):
+    """
+
+    Args:
+        dict1: THE DEFAULT
+        dict2:
+
+    Returns:
+
+    """
+    for i in dict1:
+        # If a parameter is specified in one and missing in the other
+        if not i in dict2:
+            if isinstance(dict1[i],dict):
+                dict2[i] = {}
+                apply_defaults(dict1[i],dict2[i])
+            else:
+                dict2[i]=dict1[i]
 
 if __name__ == "__main__":
     config = bert_config(process_config(DEFAULT_YAML))

@@ -10,6 +10,7 @@ from internn_utils import *
 from pytorch_utils import *
 from sen_loader import get_text
 from error_measures import *
+eps = 1e-7
 
 def sample_to_text(sample, output):
     text = [s.lower() for s in sample["text"]]
@@ -35,7 +36,7 @@ def cer_index(sample,output,index, **kwargs):
                 right += 1
             else:
                 wrong += 1
-    return right / (right + wrong)
+    return right / (right + wrong + eps)
 
 def cer_calculation(sample,output,verbose=True, **kwargs):
     wtd_sum = 0;wt = 0
