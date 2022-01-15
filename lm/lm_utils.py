@@ -38,7 +38,7 @@ def cer_index(sample,output,index, **kwargs):
                 wrong += 1
     if right+wrong==0:
         pass
-    return right / (right + wrong + eps)
+    return wrong / (right + wrong + eps)
 
 def cer_calculation(sample,output,verbose=True, **kwargs):
     wtd_sum = 0;wt = 0
