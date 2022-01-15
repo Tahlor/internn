@@ -13,7 +13,7 @@
 ## Check baseline with only lowercase
 ## Combine with digit MNIST
 
-TESTING: false
+TESTING: true
 
 # Paths
 folder_dependencies:

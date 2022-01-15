@@ -20,6 +20,12 @@ Original file is located at
 # Need to learn LOGIT version to preload
 # Finish working on stats -- calculate CER only for the characters in question??? Do both!
 
+### FIX Y_AXIS
+### WHY IS CER2 0?
+### Why are L1 and L2 the SAME VALUE???
+
+
+
 """
 import resource
 rlimit = resource.getrlimit(resource.RLIMIT_NOFILE)
@@ -283,16 +289,16 @@ def stat_mode2():
 
 def update_train_mode(epoch):
     if epoch >= config.train_mode2_start and random.random() < config.train_mode2_probability:
-        stat_mode1()
-    else:
         stat_mode2()
+    else:
+        stat_mode1()
     train_dataset.set_train_mode()
 
 COUNTER = stats.Counter(instances_per_epoch=config.epoch_length)
-l1 = stats.AutoStat(COUNTER, name="Loss1")
-l2 = stats.AutoStat(COUNTER, name="Loss2")
-cer1 = stats.AutoStat(COUNTER, name="CER1")
-cer2 = stats.AutoStat(COUNTER, name="CER2")
+l1 = stats.AutoStat(COUNTER, name="Loss1", x_plot="epoch_decimal")
+l2 = stats.AutoStat(COUNTER, name="Loss2", x_plot="epoch_decimal")
+cer1 = stats.AutoStat(COUNTER, name="CER1", x_plot="epoch_decimal")
+cer2 = stats.AutoStat(COUNTER, name="CER2", x_plot="epoch_decimal")
 
 TEST_L = stats.AutoStat(COUNTER, name="Test Loss", train=False, x_plot="epochs")
 TEST_CER = stats.AutoStat(COUNTER, name="Test CER", train=False, x_plot="epochs")
@@ -337,12 +343,19 @@ def run_epoch():
             return
         if epoch > 1 and loss.item() > 2:
             sys.exit()
-
+        print(train_dataset.active_mode, train_dataset.train_mode)
         if STEP_GLOBAL % config.steps_per_lr_update == 0 or STEP_GLOBAL < 10:
             l1.reset_accumulator()
             l2.reset_accumulator()
+
             logger.info(f"L1 {STEP_GLOBAL} {l1}")
             logger.info(f"L2 {STEP_GLOBAL} {l2}")
+
+            try:
+                plot(l1.y, l1.x, MODEL_PATH / "L1.png", ymax=np.mean(l1.y[1:])+.3)
+                plot(l2.y, l2.x, MODEL_PATH / "L2.png", ymax=np.mean(l2.y[1:])+.3)
+            except Exception as e:
+                print(f"Problem plotting: {e}")
 
             l = np.average(losses_10)
             losses.append(l)
@@ -380,7 +393,6 @@ def run_epoch():
             save_model(SAVE_PATH_VISION, vision_model, optimizer, epoch=epoch+1, loss=losses[-1] if losses else 0, scheduler=scheduler)
     # RUN TEST
     np.save(RESULTS_NPY_PATH, RESULTS, allow_pickle=True)
-    plot(losses, MODEL_PATH / "losses.png")
 
 def run_test_set():
     torch.cuda.empty_cache()
@@ -417,7 +429,7 @@ def run_test_set():
     logger.info(f"TEST loss: {avg_loss:0.3f}")
     RESULTS["test_loss"].append(avg_loss)
     RESULTS["test_CER"].append(avg_cer)
-    plot(RESULTS["test_CER"], MODEL_PATH / "TEST_CER.png")
+    plot(RESULTS["test_CER"], save= MODEL_PATH / "TEST_CER.png")
     TEST_L.reset_accumulator()
     TEST_CER.reset_accumulator()
     return avg_loss, avg_cer
