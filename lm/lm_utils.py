@@ -11,14 +11,41 @@ from pytorch_utils import *
 from sen_loader import get_text
 from error_measures import *
 
-def cer_calculation(sample,output,verbose=True):
+def sample_to_text(sample, output):
+    text = [s.lower() for s in sample["text"]]
+    out_text = [get_text(o.argmax(-1))[:sample["length"][i]] for i, o in enumerate(output)]
+    return text, out_text
+
+def cer_index(sample,output,index, **kwargs):
+    """
+
+    Args:
+        sample:
+        output:
+        index: 2D array, Batch x indices of preds
+
+    Returns:
+
+    """
+    text, out_text = sample_to_text(sample,output)
+    right = wrong = 0
+    for i in range(len(text)):
+        for ii in index[i]:
+            if text[ii] == out_text[ii]:
+                right += 1
+            else:
+                wrong += 1
+    return right / (right + wrong)
+
+def cer_calculation(sample,output,verbose=True, **kwargs):
     wtd_sum = 0;wt = 0
 
     ### CER CALCULATION
-    text = [s.lower() for s in sample["text"]]
+    text, out_text = sample_to_text(sample,output)
+
     wt += np.array(sample["length"]).sum();
-    out_text = [get_text(o.argmax(-1))[:sample["length"][i]] for i, o in enumerate(output)];
-    for i, t in enumerate(text):
+
+    for i in range(len(text)):
         wtd_sum += cer(text[i], out_text[i]) * sample["length"][i]
     if verbose:
         print(out_text[0], ";", text[0])

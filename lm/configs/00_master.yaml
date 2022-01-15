@@ -19,10 +19,11 @@ TESTING: true
 folder_dependencies:
     embedding_dataset_folder: "data/embedding_datasets/embeddings_V5"  # Where to load embeddings/logits from
     VGG_model_path: 'data/embedding_datasets/embeddings_V5/vgg.pt'  # Where to load the VGG model from (if needed for tuning)
-    lm_model_path: 'lm/results/BASE2/BERT_vgg_embeddings.pt'
+    lm_model_path: 'lm/results/BASE/BERT_vgg_embeddings.pt'
 
 folder_outputs:  "results/*EXPERIMENT*" # EXPERIMENT to be replaced
 wandb: false
+reset_optimizer: true
 
 # Training Settings
 ## Experiment Definitions
@@ -48,7 +49,7 @@ train_mode: full sequence
 
 ## Switch to other train mode
 # config.train_mode2 = multicharacter MEAN_EMBEDDING
-train_mode2: multicharacter RANDOM_CHAR50 # RANDOM_CHAR50 USE_CORRECT_CHAR50 MEAN_EMBEDDING MASK_CHAR50
+train_mode2: multicharacter MEAN_EMBEDDING # RANDOM_CHAR50 USE_CORRECT_CHAR50 MEAN_EMBEDDING MASK_CHAR50
 train_mode2_start: 0 # how many epoch(?) before starting
 train_mode2_probability: .6 # 0-1 : after train_mode2_start, how likely does it apply?
 

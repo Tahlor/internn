@@ -87,9 +87,10 @@ def plot(losses, save=False, ymax=.2):
     plt.plot(losses)
     if save:
         plt.savefig(save, dpi=300)
+        plt.close()
     else:
         plt.show()
-    print(losses)
+    print(f"Plotting losses: {losses}")
 
 
 if __name__ == "__main__":

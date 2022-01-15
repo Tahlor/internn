@@ -212,6 +212,7 @@ class SentenceDataset(Dataset):
         self.sentence_data, self.train_images_loaded, self.test_images_loaded, self.train_emb_loaded, self.test_emb_loaded = torch.load(PATH)
         self.sentence_data_train, self.sentence_data_test = datasets.load_dataset('bookcorpus', split=['train[:85%]', 'train[85%:]'])
         self.load_images()
+        self.active_mode = False
         if self.train:
             self.set_train_mode()
 
@@ -231,6 +232,8 @@ class SentenceDataset(Dataset):
         torch.save(m, path)
 
     def parse_train_mode(self, train_mode=None):
+        # if train_mode == self.train_mode and self.active_mode:
+        #     return
         if train_mode is None:
             train_mode = self.train_mode
         for tm in ["full sequence", "single character", "multicharacter"]:
@@ -396,6 +399,8 @@ class SentenceDataset(Dataset):
 
         # Provide attention and label masks
         attention_mask = torch.ones([sen_len])
+
+        ## single character, multicharacter
         if self.active_mode.endswith("character"):
             choices = min(self.multicharacter_number, int(sen_len / 6)) if self.active_mode == "multicharacter" else 1
             mask_idx = mask_char_idx = np.random.choice(sen_len, choices, replace=False)
@@ -413,6 +418,8 @@ class SentenceDataset(Dataset):
                 for i, (version, prob) in enumerate(self.train_mode_maskchar_list):
                     mask_char_count = mask_char_counts[i]
                     end = start + mask_char_count
+
+                    # DEFAULT IS THE CORRECT CHAR
                     if version in ["MASK_CHAR","RANDOM_CHAR", "MEAN_EMBEDDING"]:
                         mask_char_idx = mask_idx[start:end] # the indices that have been replaced with a mask_char
                         start = end

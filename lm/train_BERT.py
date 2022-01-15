@@ -141,10 +141,12 @@ if embedding:
 optimizer = AdamW(all_parameters, lr=config.lr)
 scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.patience, factor=config.decay_factor)
 
+_optimizer = optimizer if not config.reset_optimizer else None
+
 latest = get_latest_file(config.folder_outputs, EXPERIMENT_NAME)
 if latest:
     logger.info(f"Loading {latest}")
-    old_state = load_model(latest, model, optimizer, scheduler)
+    old_state = load_model(latest, model, _optimizer, scheduler)
     config.starting_epoch, loss = old_state["epoch"], old_state["loss"]
 
 ## TEST MODEL
@@ -230,7 +232,7 @@ losses = []
 #### LOAD THE OLD MODELS
 if "lm_model_path" in config.folder_dependencies:
     try:
-        load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=optimizer, scheduler=scheduler)
+        load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=_optimizer, scheduler=scheduler)
     except Exception as e:
         logger.error(str(e))
 
@@ -249,15 +251,65 @@ config.folder_dependencies.lm_model_path = SAVE_PATH = incrementer(MODEL_PATH, E
 config.folder_dependencies.finetuned_cnn_path = SAVE_PATH_VISION = incrementer(MODEL_PATH, EXPERIMENT_NAME + "_CNN.pt", incrementer=False)
 config.folder_dependencies.finetuned_cnn_path = RESULTS_NPY_PATH = SAVE_PATH.with_suffix(".npy")
 
+##### NEXT STEPS:
+## Finish CER for multcharacter
+## Don't save if error is too high; automatically reload previous save
+## Finalize CER/Loss recording
+
+def stat_mode1():
+    global STAT, CER, FACTOR, train_dataset, CER_LIST, MODE
+    train_dataset.train_mode = config.train_mode
+    STAT = l1
+    CER = cer_calculation
+    CER_LIST = cer1
+    FACTOR = 1
+    MODE = 1
+
+def stat_mode2():
+    """ Assumed stat_mode2 uses a factor and CER_INDEX calculation
+
+    Returns:
+
+    """
+    global STAT, CER, FACTOR, train_dataset, CER_LIST, MODE
+    train_dataset.train_mode = config.train_mode2
+    STAT = l2
+    CER = cer_index
+    CER_LIST = cer2
+    FACTOR = .5
+    MODE = 2
+
+def update_train_mode(epoch):
+    if epoch >= config.train_mode2_start and random.random() < config.train_mode2_probability:
+        stat_mode1()
+    else:
+        stat_mode2()
+    train_dataset.set_train_mode()
+
 COUNTER = stats.Counter(instances_per_epoch=config.epoch_length)
 l1 = stats.AutoStat(COUNTER, name="Loss1")
 l2 = stats.AutoStat(COUNTER, name="Loss2")
-STAT = l1
+cer1 = stats.AutoStat(COUNTER, name="CER1")
+cer2 = stats.AutoStat(COUNTER, name="CER2")
+
+TEST_L = stats.AutoStat(COUNTER, name="Test Loss", train=False, x_plot="epochs")
+TEST_CER = stats.AutoStat(COUNTER, name="Test CER", train=False, x_plot="epochs")
+STAT = l1; CER = cer_calculation; CER_LIST = cer1
+
+STATS = {
+    "L1" : l1,
+    "L2" : l2,
+    "CER1" : cer1,
+    "CER2" : cer2,
+    "TEST L" : TEST_L,
+    "TEST CER" : TEST_CER,
+}
+
 def run_epoch():
     global STAT
     global losses, STEP_GLOBAL
     logger.info(("epoch", epoch))
-    train_dataset.set_train_mode()
+    update_train_mode(epoch)
     model.train()
     losses_10 = []
     start_time = datetime.datetime.now()
@@ -269,7 +321,7 @@ def run_epoch():
 
         ### -100 is a special index that is IGNORED by the objective; so everything was already "exclusive"; y_truth INDICES of correct letters, -100 ignored
         loss = objective(output.view(-1, config.vocab_size_extended), y_truth.squeeze(0).view(-1).to(config.device)) # y_hat includes extra tokens?
-        loss.backward()
+        (loss * FACTOR).backward()
         STAT.accumulate(loss.item(), weight=sample["num_preds"])
         losses_10.append(loss.item())
         optimizer.step()
@@ -282,15 +334,16 @@ def run_epoch():
         if STEP_GLOBAL % config.steps_per_lr_update == 0 or STEP_GLOBAL < 10:
             l1.reset_accumulator()
             l2.reset_accumulator()
-            logger.info(("L1", STEP_GLOBAL, l1))
-            logger.info(("L2", STEP_GLOBAL, l2))
+            logger.info(f"L1 {STEP_GLOBAL} {l1}")
+            logger.info(f"L2 {STEP_GLOBAL} {l2}")
 
             l = np.average(losses_10)
             losses.append(l)
             losses_10 = []
             logger.info(("STEP", STEP_GLOBAL, l))
-            cer_list.append(cer_calculation(sample,output))
-            logger.info(("CER", cer_list[-1]))
+            cer = CER(sample,output, index=sample["mask_char_idx"])
+            CER_LIST.accumulate(cer); CER_LIST.reset_accumulator()
+            logger.info(f"CER{MODE}: {CER_LIST}")
             scheduler.step(l)
             lr = optimizer.param_groups[0]['lr']
             if lr < config["lr"]:
@@ -298,7 +351,8 @@ def run_epoch():
                 config["lr"] = lr
             if config.wandb:
                 wandb.log({"loss": l, "epoch": epoch, "step": ii, "cer":cer_list[-1]}, step=STEP_GLOBAL, commit=False)
-
+            if "multichar" in train_dataset.train_mode.lower():
+                pass
         # if (datetime.datetime.now() - start_time).seconds / 60 > config.update_freq_time:
         #     start_time = datetime.datetime.now()
         #     break
@@ -307,17 +361,9 @@ def run_epoch():
             break
 
         ### CHANGE TRAINING MODE IF NEEDED
-        old_mode = train_dataset.train_mode
         if config.train_mode2:
             ### YOU CAN'T CHANGE THE DATALOADER ONCE YOU'VE SAMPLED IT -- EVERYTHING IS LAGGED ONE UPDATE
-            if epoch >= config.train_mode2_start and random.random() < config.train_mode2_probability:
-                train_dataset.train_mode = config.train_mode2
-                STAT = l1
-            else:
-                train_dataset.train_mode = config.train_mode
-                STAT = l2
-            if old_mode != train_dataset.train_mode:
-                train_dataset.parse_train_mode()
+            update_train_mode(epoch)
 
 
 
@@ -332,7 +378,7 @@ def run_epoch():
 def run_test_set():
     torch.cuda.empty_cache()
     cer = [] ; losses = []
-    train_dataset.set_test_mode()
+    train_dataset.set_test_mode() # TEST MODE IS ALWAYS FULL SEQUENCE
     start_time = datetime.datetime.now()
     model.eval()
     try:
@@ -340,7 +386,12 @@ def run_test_set():
             with torch.no_grad():
                 output, y_hat, y_truth = run_one(sample)
                 loss = objective(output.view(-1, config.vocab_size_extended), y_truth.squeeze(0).view(-1).to(config.device)) # y_hat includes extra tokens?
-            cer.append(cer_calculation(sample, output)); losses.append(loss.cpu().detach().item())
+            _cer = cer_calculation(sample, output)
+            _loss = loss.cpu().detach().item()
+            cer.append(_cer); losses.append(_loss)
+
+            TEST_L.accumulate(_loss,  weight=sample["num_preds"])
+            TEST_CER.accumulate(_cer, weight=sample["num_preds"])
 
             # 1 minute of testing
             if (datetime.datetime.now() - start_time).seconds / 60 > 1:
@@ -352,6 +403,7 @@ def run_test_set():
 
     except Exception as e:
         logger.info((e))
+
     avg_loss = np.average(losses)
     avg_cer = np.average(cer)
     logger.info(f"TEST CER: {avg_cer:0.3f}")
@@ -359,6 +411,8 @@ def run_test_set():
     RESULTS["test_loss"].append(avg_loss)
     RESULTS["test_CER"].append(avg_cer)
     plot(RESULTS["test_CER"], MODEL_PATH / "TEST_CER.png")
+    TEST_L.reset_accumulator()
+    TEST_CER.reset_accumulator()
     return avg_loss, avg_cer
 
 
@@ -372,6 +426,8 @@ def load_vision():
 
 def check_epoch():
     global VISION_MODEL_ACTIVE, train_loader
+
+    ## ACTIVATE VISION MODEL FINE TUNING
     if config.vision_fine_tuning and config.vision_fine_tuning_start == epoch:
         logger.info("ACTIVATING VISION MODEL")
         vision_model = load_vision()
@@ -391,10 +447,13 @@ def check_epoch():
 
         train_dataset.load_images()
 
+
+
 for epoch in range(config.starting_epoch if config.starting_epoch else 0, config.epochs):
     check_epoch()
     run_epoch()
     test_loss, test_cer = run_test_set()
+    np.save(MODEL_PATH / "STATS.npy", STATS)
     if config.wandb:
         wandb.log({"test_loss": test_loss, "epoch": epoch, "test_cer": test_cer}, step=STEP_GLOBAL, commit=True)
 

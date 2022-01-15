@@ -13,6 +13,7 @@ baseline_configs = ["00_master.yaml"]
 NAME = "02_REDO"
 baseline_configs = [ (LM / "configs") / b for b in baseline_configs]
 variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
+                  "lm_model_path": ['lm/results/BASE/BERT_EXPERIMENT_TYPE.pt'],
                   "embedding_norm":["softmax"],
                   "train_mode2": ["single character",
                                   "multicharacter USE_CORRECT_CHAR_100",
@@ -76,21 +77,27 @@ def replace_config(yaml_path, variation_list, new_folder="variants"):
 
         output_file = ""
         for key, value in variant.items():
-            new_yaml_file[key] = value
+
+            # Update file name
             file_name_variant_abbreviation = ""
-            if isinstance(value, list):
+            if isinstance(value,str) and "EXPERIMENT_TYPE" in value:
+                value = value.replace("EXPERIMENT_TYPE", variant["experiment_type"])
+            elif isinstance(value, list):
                 for val in value:
                     file_name_variant_abbreviation += Path(str(val)).stem + "_" # mostly get rid of "/" etc.
             else:
                 file_name_variant_abbreviation += Path(str(value)).stem
-            output_file += f"_{file_name_variant_abbreviation}"
+            if file_name_variant_abbreviation:
+                output_file += f"_{file_name_variant_abbreviation}"
+
+            # Update value
+            new_yaml_file[key] = value
         new_yaml_file["TESTING"] = False
         new_yaml_file["batch_size"] = 384
 
         # Replace experiment output folder
         new_yaml_file["folder_outputs"] = yaml_file["folder_outputs"].replace("*EXPERIMENT*", f"{str(output_dir.relative_to(parent))}/{output_file}")
 
-        #with open((parent / name).with_suffix(ext), "w") as f:
         with (output_dir / (output_file + ext)).open(mode='w') as f:
             yaml.dump(new_yaml_file, f, default_flow_style=False, sort_keys=False)
 

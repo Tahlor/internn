@@ -164,8 +164,8 @@ class AutoStat(Stat):
             self.updated_since_plot = True
 
     def __str__(self):
-        if len(self.x):
-            return self.x[-1]
+        if len(self.y):
+            return str(self.y[-1])
         return None
 
 class Counter:
