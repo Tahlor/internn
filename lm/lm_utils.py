@@ -36,6 +36,8 @@ def cer_index(sample,output,index, **kwargs):
                 right += 1
             else:
                 wrong += 1
+    if right+wrong==0:
+        pass
     return right / (right + wrong + eps)
 
 def cer_calculation(sample,output,verbose=True, **kwargs):

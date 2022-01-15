@@ -142,11 +142,12 @@ optimizer = AdamW(all_parameters, lr=config.lr)
 scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.patience, factor=config.decay_factor)
 
 _optimizer = optimizer if not config.reset_optimizer else None
+_scheduler = scheduler if not config.reset_optimizer else None
 
 latest = get_latest_file(config.folder_outputs, EXPERIMENT_NAME)
 if latest:
     logger.info(f"Loading {latest}")
-    old_state = load_model(latest, model, _optimizer, scheduler)
+    old_state = load_model(latest, model, _optimizer, _scheduler)
     config.starting_epoch, loss = old_state["epoch"], old_state["loss"]
 
 ## TEST MODEL
@@ -232,7 +233,7 @@ losses = []
 #### LOAD THE OLD MODELS
 if "lm_model_path" in config.folder_dependencies:
     try:
-        load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=_optimizer, scheduler=scheduler)
+        load_model(ROOT / config.folder_dependencies.lm_model_path, model, optimizer=_optimizer, scheduler=_scheduler)
     except Exception as e:
         logger.error(str(e))
 
