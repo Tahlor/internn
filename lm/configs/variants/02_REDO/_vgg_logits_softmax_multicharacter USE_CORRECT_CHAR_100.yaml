@@ -5,6 +5,7 @@ folder_dependencies:
   lm_model_path: lm/results/BASE/BERT_vgg_embeddings.pt
 folder_outputs: results/variants/02_REDO/_vgg_logits_softmax_multicharacter USE_CORRECT_CHAR_100
 wandb: false
+reset_optimizer: true
 experiment_prefix: BERT_
 experiment_description: null
 experiment_type: vgg_logits

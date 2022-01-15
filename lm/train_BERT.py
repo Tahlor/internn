@@ -331,6 +331,8 @@ def run_epoch():
         if torch.any(torch.isnan(loss)):
             logger.error("NaN in loss")
             return
+        if epoch > 1 and loss.item() > 2:
+            sys.exit()
 
         if STEP_GLOBAL % config.steps_per_lr_update == 0 or STEP_GLOBAL < 10:
             l1.reset_accumulator()

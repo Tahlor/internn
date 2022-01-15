@@ -6,6 +6,7 @@ folder_dependencies:
 folder_outputs: results/variants/02_REDO/_vgg_embeddings_softmax_multicharacter RANDOM_CHAR_80
   USE_CORRECT_CHAR_20
 wandb: false
+reset_optimizer: true
 experiment_prefix: BERT_
 experiment_description: null
 experiment_type: vgg_embeddings

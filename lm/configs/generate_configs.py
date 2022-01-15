@@ -17,8 +17,8 @@ variation_dict = {"experiment_type": ["vgg_embeddings","vgg_logits"],
                   "embedding_norm":["softmax"],
                   "train_mode2": ["single character",
                                   "multicharacter USE_CORRECT_CHAR_100",
-                                  "multicharacter MASK_CHAR_20 RANDOM_CHAR_20 USE_CORRECT_CHAR_20",
-                                  "multicharacter MASK_CHAR_80 USE_CORRECT_CHAR_20",
+                                  "multicharacter MEAN_EMBEDDING_20 RANDOM_CHAR_20 USE_CORRECT_CHAR_20",
+                                  "multicharacter MEAN_EMBEDDING_80 USE_CORRECT_CHAR_20",
                                   "multicharacter RANDOM_CHAR_80 USE_CORRECT_CHAR_20"]}
 
 baseline_dict = {"max_intensity": 0}

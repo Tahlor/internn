@@ -8,7 +8,7 @@ import socket
 
 
 # GLOBALS
-EMAIL = "taylornarchibald@gmail.com" # mikebbrodie@gmail.com
+EMAIL = "taylornarchibald@gmail.com"
 MEM = 100000
 GALOIS_GROUP_PATH = "/media/data/GitHub"
 class Generator():
