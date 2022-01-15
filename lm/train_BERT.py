@@ -40,7 +40,8 @@ from pytorch_utils import *
 from general_tools.my_logging import *
 import wandb
 import random
-from transformers import AdamW
+from transformers import AdamW as ADAM
+from torch.optim import Adam
 import process_config_BERT
 import matplotlib.pyplot as plt
 import sys
@@ -138,7 +139,7 @@ if embedding:
 # 51258938
 #  2083333
 
-optimizer = AdamW(all_parameters, lr=config.lr)
+optimizer = ADAM(all_parameters, lr=config.lr)
 scheduler = ReduceLROnPlateau(optimizer, 'min', patience=config.patience, factor=config.decay_factor)
 
 _optimizer = optimizer if not config.reset_optimizer else None
@@ -325,6 +326,9 @@ def run_epoch():
         (loss * FACTOR).backward()
         STAT.accumulate(loss.item(), weight=sample["num_preds"])
         losses_10.append(loss.item())
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1e-4)
+
         optimizer.step()
 
         STEP_GLOBAL = STEP_GLOBAL + 1
